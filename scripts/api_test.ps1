@@ -430,6 +430,246 @@ function Test-Logout {
     }
 }
 
+function Get-StudentUsername {
+    # Get a student user from the database
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users?role=student&limit=5"
+    if ($result.Success -and $result.Data.data -and $result.Data.data.Count -gt 0) {
+        foreach ($user in $result.Data.data) {
+            if ($user.username -ne "admin") {
+                return $user.username
+            }
+        }
+    }
+    return $null
+}
+
+function Get-AlumniUsername {
+    # Get an alumni user from the database
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users?role=alumni&limit=5"
+    if ($result.Success -and $result.Data.data -and $result.Data.data.Count -gt 0) {
+        foreach ($user in $result.Data.data) {
+            if ($user.username -ne "admin") {
+                return $user.username
+            }
+        }
+    }
+    return $null
+}
+
+function Test-StudentEndpoints {
+    Write-TestHeader "STUDENT USER TESTS"
+    
+    # Get a student username
+    $studentUsername = Get-StudentUsername
+    if (-not $studentUsername) {
+        Write-TestResult -Name "Student tests" -Skip $true -Message "No student users found in database"
+        return
+    }
+    
+    Write-Host "  Testing as student: $studentUsername" -ForegroundColor Gray
+    
+    # Login as student
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/auth/login" -Body @{
+        username = $studentUsername
+        password = "password"
+    }
+    
+    if (-not $result.Success -or -not $result.Data.data.access_token) {
+        Write-TestResult -Name "POST /auth/login (student)" -Success $false -Message "Failed to login as student"
+        return
+    }
+    
+    $studentToken = $result.Data.data.access_token
+    Write-TestResult -Name "POST /auth/login (student)" -Success $true
+    
+    # Save original token and use student token
+    $originalToken = $Global:AccessToken
+    $Global:AccessToken = $studentToken
+    
+    # GET /me - Student profile
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/me" -UseAuth $true
+    $isStudent = $result.Success -and $result.Data.data.role -in @("student", "alumni")
+    Write-TestResult -Name "GET /me (student role check)" -Success $isStudent -Message $(if (-not $isStudent) { "Expected student/alumni role" })
+    
+    # GET /users/{username} - View other user profile as student
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username} (student)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username} - View own profile as student
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/$studentUsername" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username} (student own)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username}/followers - As student
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin/followers" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username}/followers (student)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username}/following - As student
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin/following" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username}/following (student)" -Success $result.Success -Message $result.Error
+    
+    # Student creates portfolio
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+        judul = "Student Test Portfolio"
+    } -ExpectedStatus 201
+    
+    $studentPortfolioId = $null
+    if ($result.Success -and $result.Data.data.id) {
+        $studentPortfolioId = $result.Data.data.id
+        Write-TestResult -Name "POST /portfolios (student)" -Success $true
+    } else {
+        Write-TestResult -Name "POST /portfolios (student)" -Success $false -Message $result.Error
+    }
+    
+    # Student gets own portfolios
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/me/portfolios" -UseAuth $true
+    Write-TestResult -Name "GET /me/portfolios (student)" -Success $result.Success -Message $result.Error
+    
+    # Student updates own portfolio
+    if ($studentPortfolioId) {
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$studentPortfolioId" -UseAuth $true -Body @{
+            judul = "Student Portfolio Updated"
+        }
+        Write-TestResult -Name "PATCH /portfolios/{id} (student own)" -Success $result.Success -Message $result.Error
+    }
+    
+    # Student CANNOT access admin endpoints (should get 403)
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true -ExpectedStatus 403
+    Write-TestResult -Name "GET /admin/dashboard/stats (student - expect 403)" -Success $result.Success -Message $(if (-not $result.Success) { "Got status $($result.StatusCode) instead of 403" })
+    
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/users" -UseAuth $true -ExpectedStatus 403
+    Write-TestResult -Name "GET /admin/users (student - expect 403)" -Success $result.Success -Message $(if (-not $result.Success) { "Got status $($result.StatusCode) instead of 403" })
+    
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/portfolios" -UseAuth $true -ExpectedStatus 403
+    Write-TestResult -Name "GET /admin/portfolios (student - expect 403)" -Success $result.Success -Message $(if (-not $result.Success) { "Got status $($result.StatusCode) instead of 403" })
+    
+    # Student follow/unfollow another user
+    $targetUser = $null
+    $usersResult = Invoke-ApiRequest -Method "GET" -Endpoint "/users?limit=10"
+    if ($usersResult.Success -and $usersResult.Data.data) {
+        foreach ($user in $usersResult.Data.data) {
+            if ($user.username -ne $studentUsername) {
+                $targetUser = $user.username
+                break
+            }
+        }
+    }
+    
+    if ($targetUser) {
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/users/$targetUser/follow" -UseAuth $true
+        Write-TestResult -Name "POST /users/{username}/follow (student)" -Success ($result.Success -or $result.StatusCode -eq 409) -Message $result.Error
+        
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/users/$targetUser/follow" -UseAuth $true
+        Write-TestResult -Name "DELETE /users/{username}/follow (student)" -Success ($result.Success -or $result.StatusCode -eq 400) -Message $result.Error
+    }
+    
+    # Student like/unlike portfolio
+    $portfolioResult = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios?limit=1"
+    if ($portfolioResult.Success -and $portfolioResult.Data.data -and $portfolioResult.Data.data.Count -gt 0) {
+        $portfolioToLike = $portfolioResult.Data.data[0].id
+        
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+        Write-TestResult -Name "POST /portfolios/{id}/like (student)" -Success ($result.Success -or $result.StatusCode -eq 409) -Message $result.Error
+        
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+        Write-TestResult -Name "DELETE /portfolios/{id}/like (student)" -Success ($result.Success -or $result.StatusCode -eq 400) -Message $result.Error
+    }
+    
+    # Cleanup - delete student test portfolio
+    if ($studentPortfolioId) {
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$studentPortfolioId" -UseAuth $true
+        Write-TestResult -Name "DELETE test portfolio (student)" -Success $result.Success -Message $result.Error
+    }
+    
+    # Logout student
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/auth/logout" -UseAuth $true
+    Write-TestResult -Name "POST /auth/logout (student)" -Success $result.Success -Message $result.Error
+    
+    # Restore original admin token
+    $Global:AccessToken = $originalToken
+}
+
+function Test-AlumniEndpoints {
+    Write-TestHeader "ALUMNI USER TESTS"
+    
+    # Get an alumni username
+    $alumniUsername = Get-AlumniUsername
+    if (-not $alumniUsername) {
+        Write-TestResult -Name "Alumni tests" -Skip $true -Message "No alumni users found in database"
+        return
+    }
+    
+    Write-Host "  Testing as alumni: $alumniUsername" -ForegroundColor Gray
+    
+    # Login as alumni
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/auth/login" -Body @{
+        username = $alumniUsername
+        password = "password"
+    }
+    
+    if (-not $result.Success -or -not $result.Data.data.access_token) {
+        Write-TestResult -Name "POST /auth/login (alumni)" -Success $false -Message "Failed to login as alumni"
+        return
+    }
+    
+    $alumniToken = $result.Data.data.access_token
+    Write-TestResult -Name "POST /auth/login (alumni)" -Success $true
+    
+    # Save original token and use alumni token
+    $originalToken = $Global:AccessToken
+    $Global:AccessToken = $alumniToken
+    
+    # GET /me - Alumni profile
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/me" -UseAuth $true
+    $isAlumni = $result.Success -and $result.Data.data.role -eq "alumni"
+    Write-TestResult -Name "GET /me (alumni role check)" -Success $isAlumni -Message $(if (-not $isAlumni) { "Expected alumni role, got: $($result.Data.data.role)" })
+    
+    # GET /users/{username} - View other user profile as alumni
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username} (alumni)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username} - View own profile as alumni
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/$alumniUsername" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username} (alumni own)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username}/followers - As alumni
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin/followers" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username}/followers (alumni)" -Success $result.Success -Message $result.Error
+    
+    # GET /users/{username}/following - As alumni
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/users/admin/following" -UseAuth $true
+    Write-TestResult -Name "GET /users/{username}/following (alumni)" -Success $result.Success -Message $result.Error
+    
+    # Alumni creates portfolio
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+        judul = "Alumni Test Portfolio"
+    } -ExpectedStatus 201
+    
+    $alumniPortfolioId = $null
+    if ($result.Success -and $result.Data.data.id) {
+        $alumniPortfolioId = $result.Data.data.id
+        Write-TestResult -Name "POST /portfolios (alumni)" -Success $true
+    } else {
+        Write-TestResult -Name "POST /portfolios (alumni)" -Success $false -Message $result.Error
+    }
+    
+    # Alumni CANNOT access admin endpoints
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true -ExpectedStatus 403
+    Write-TestResult -Name "GET /admin/dashboard/stats (alumni - expect 403)" -Success $result.Success -Message $(if (-not $result.Success) { "Got status $($result.StatusCode) instead of 403" })
+    
+    # Cleanup - delete alumni test portfolio
+    if ($alumniPortfolioId) {
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$alumniPortfolioId" -UseAuth $true
+        Write-TestResult -Name "DELETE test portfolio (alumni)" -Success $result.Success -Message $result.Error
+    }
+    
+    # Logout alumni
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/auth/logout" -UseAuth $true
+    Write-TestResult -Name "POST /auth/logout (alumni)" -Success $result.Success -Message $result.Error
+    
+    # Restore original admin token
+    $Global:AccessToken = $originalToken
+}
+
 # ============================================
 # MAIN
 # ============================================
@@ -460,6 +700,10 @@ Test-FeedEndpoints
 Test-AdminEndpoints
 Test-Cleanup
 Test-Logout
+
+# Run student/alumni tests (re-login as admin first for cleanup)
+Test-StudentEndpoints
+Test-AlumniEndpoints
 
 # Summary
 Write-Host ""

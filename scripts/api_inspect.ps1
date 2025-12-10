@@ -280,8 +280,123 @@ function Inspect-AllEndpoints {
             Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$portfolioId" -UseAuth $true
         }
         
-        Write-Header "LOGOUT"
+        Write-Header "LOGOUT (ADMIN)"
         Invoke-ApiInspect -Method "POST" -Endpoint "/auth/logout" -UseAuth $true
+    }
+    
+    # ========== STUDENT USER ENDPOINTS ==========
+    Write-Header "STUDENT USER ENDPOINTS"
+    
+    # Get a student username
+    $studentUsername = $null
+    $usersResult = Invoke-ApiInspect -Method "GET" -Endpoint "/users?role=student&limit=3"
+    if ($usersResult.Content -and $usersResult.Content.data -and $usersResult.Content.data.Count -gt 0) {
+        $studentUsername = $usersResult.Content.data[0].username
+    }
+    
+    if ($studentUsername) {
+        Write-Log ""
+        Write-Log "  [Found student user: $studentUsername]" -Color Yellow
+        
+        # Login as student
+        $studentLoginResult = Invoke-ApiInspect -Method "POST" -Endpoint "/auth/login" -Body @{
+            username = $studentUsername
+            password = "password"
+        }
+        
+        if ($studentLoginResult.Content -and $studentLoginResult.Content.data.access_token) {
+            $Global:AccessToken = $studentLoginResult.Content.data.access_token
+            Write-Log ""
+            Write-Log "  [Logged in as student, token saved]" -Color Green
+            
+            Write-Header "STUDENT PROFILE"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/me" -UseAuth $true
+            
+            Write-Header "STUDENT USER ENDPOINTS"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/$studentUsername" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/followers?limit=3" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/following?limit=3" -UseAuth $true
+            
+            Write-Header "STUDENT PORTFOLIOS"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/me/portfolios?limit=3" -UseAuth $true
+            
+            Write-Header "STUDENT FEED"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/feed?limit=3" -UseAuth $true
+            
+            Write-Header "STUDENT ADMIN ACCESS (SHOULD FAIL)"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/admin/users?limit=1" -UseAuth $true
+            
+            Write-Header "STUDENT PORTFOLIO CRUD"
+            # Create portfolio as student
+            $studentPortfolioResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+                judul = "Student Demo Portfolio"
+            }
+            
+            if ($studentPortfolioResult.Content -and $studentPortfolioResult.Content.data.id) {
+                $studentPortfolioId = $studentPortfolioResult.Content.data.id
+                
+                # Update portfolio
+                Invoke-ApiInspect -Method "PATCH" -Endpoint "/portfolios/$studentPortfolioId" -UseAuth $true -Body @{
+                    judul = "Student Demo Portfolio Updated"
+                }
+                
+                # Delete portfolio
+                Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$studentPortfolioId" -UseAuth $true
+            }
+            
+            Write-Header "LOGOUT (STUDENT)"
+            Invoke-ApiInspect -Method "POST" -Endpoint "/auth/logout" -UseAuth $true
+        }
+    } else {
+        Write-Log ""
+        Write-Log "  [No student users found, skipping student tests]" -Color Yellow
+    }
+    
+    # ========== ALUMNI USER ENDPOINTS ==========
+    Write-Header "ALUMNI USER ENDPOINTS"
+    
+    # Get an alumni username
+    $alumniUsername = $null
+    $alumniResult = Invoke-ApiInspect -Method "GET" -Endpoint "/users?role=alumni&limit=3"
+    if ($alumniResult.Content -and $alumniResult.Content.data -and $alumniResult.Content.data.Count -gt 0) {
+        $alumniUsername = $alumniResult.Content.data[0].username
+    }
+    
+    if ($alumniUsername) {
+        Write-Log ""
+        Write-Log "  [Found alumni user: $alumniUsername]" -Color Yellow
+        
+        # Login as alumni
+        $alumniLoginResult = Invoke-ApiInspect -Method "POST" -Endpoint "/auth/login" -Body @{
+            username = $alumniUsername
+            password = "password"
+        }
+        
+        if ($alumniLoginResult.Content -and $alumniLoginResult.Content.data.access_token) {
+            $Global:AccessToken = $alumniLoginResult.Content.data.access_token
+            Write-Log ""
+            Write-Log "  [Logged in as alumni, token saved]" -Color Green
+            
+            Write-Header "ALUMNI PROFILE"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/me" -UseAuth $true
+            
+            Write-Header "ALUMNI USER ENDPOINTS"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/$alumniUsername" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/followers?limit=3" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/following?limit=3" -UseAuth $true
+            
+            Write-Header "ALUMNI ADMIN ACCESS (SHOULD FAIL)"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true
+            
+            Write-Header "LOGOUT (ALUMNI)"
+            Invoke-ApiInspect -Method "POST" -Endpoint "/auth/logout" -UseAuth $true
+        }
+    } else {
+        Write-Log ""
+        Write-Log "  [No alumni users found, skipping alumni tests]" -Color Yellow
     }
     
     Write-Log ""

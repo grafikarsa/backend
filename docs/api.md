@@ -255,7 +255,6 @@ Lihat semua sesi aktif user.
       },
       "ip_address": "192.168.1.2",
       "created_at": "2025-12-08T08:00:00Z",
-      "last_used_at": "2025-12-09T12:00:00Z",
       "is_current": false
     }
   ]
