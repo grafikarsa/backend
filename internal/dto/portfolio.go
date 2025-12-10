@@ -70,8 +70,9 @@ type CreatePortfolioRequest struct {
 }
 
 type UpdatePortfolioRequest struct {
-	Judul  *string     `json:"judul,omitempty"`
-	TagIDs []uuid.UUID `json:"tag_ids,omitempty"`
+	Judul        *string     `json:"judul,omitempty"`
+	ThumbnailURL *string     `json:"thumbnail_url,omitempty"`
+	TagIDs       []uuid.UUID `json:"tag_ids,omitempty"`
 }
 
 // Content Block

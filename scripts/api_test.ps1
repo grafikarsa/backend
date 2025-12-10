@@ -260,6 +260,20 @@ function Test-PortfolioEndpoints {
             judul = "Updated Test Portfolio"
         }
         Write-TestResult -Name "PATCH /portfolios/{id}" -Success $result.Success -Message $result.Error
+        
+        # POST /portfolios/{id}/submit - Should fail because no thumbnail/content blocks yet
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/submit" -UseAuth $true -ExpectedStatus 422
+        Write-TestResult -Name "POST /portfolios/{id}/submit (incomplete)" -Success $result.Success -Message $result.Error
+    }
+    
+    # GET /portfolios/{slug} - Test with published portfolio from public list
+    $publicPortfolios = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios?limit=1"
+    if ($publicPortfolios.Success -and $publicPortfolios.Data.data -and $publicPortfolios.Data.data.Count -gt 0) {
+        $testSlug = $publicPortfolios.Data.data[0].slug
+        $result = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios/$testSlug"
+        Write-TestResult -Name "GET /portfolios/{slug}" -Success $result.Success -Message $result.Error
+    } else {
+        Write-TestResult -Name "GET /portfolios/{slug}" -Skip $true -Message "No published portfolios available"
     }
 }
 
@@ -271,35 +285,149 @@ function Test-ContentBlockEndpoints {
         return
     }
     
-    # POST /portfolios/{id}/blocks
+    # Test all 6 block types: text, image, table, youtube, button, embed
+    
+    # 1. TEXT block
     $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
         block_type = "text"
         block_order = 0
         payload = @{
-            content = "<p>Test content block</p>"
+            content = "<p>Test text content block</p>"
         }
     } -ExpectedStatus 201
+    $textBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $textBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (text)" -Success $result.Success -Message $result.Error
     
-    if ($result.Success -and $result.Data.data.id) {
-        $Global:TestBlockId = $result.Data.data.id
-        Write-TestResult -Name "POST /portfolios/{id}/blocks" -Success $true
-    } else {
-        Write-TestResult -Name "POST /portfolios/{id}/blocks" -Success $false -Message $result.Error
-    }
+    # 2. IMAGE block
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
+        block_type = "image"
+        block_order = 1
+        payload = @{
+            url = "https://picsum.photos/800/600"
+            caption = "Test image caption"
+        }
+    } -ExpectedStatus 201
+    $imageBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $imageBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (image)" -Success $result.Success -Message $result.Error
     
-    if ($Global:TestBlockId) {
-        # PATCH /portfolios/{id}/blocks/{block_id}
-        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/$Global:TestBlockId" -UseAuth $true -Body @{
+    # 3. TABLE block
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
+        block_type = "table"
+        block_order = 2
+        payload = @{
+            headers = @("Fitur", "Deskripsi")
+            rows = @(@("Login", "Autentikasi user"), @("Dashboard", "Halaman utama"))
+        }
+    } -ExpectedStatus 201
+    $tableBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $tableBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (table)" -Success $result.Success -Message $result.Error
+    
+    # 4. YOUTUBE block
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
+        block_type = "youtube"
+        block_order = 3
+        payload = @{
+            video_id = "dQw4w9WgXcQ"
+            title = "Demo Video"
+        }
+    } -ExpectedStatus 201
+    $youtubeBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $youtubeBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (youtube)" -Success $result.Success -Message $result.Error
+    
+    # 5. BUTTON block
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
+        block_type = "button"
+        block_order = 4
+        payload = @{
+            text = "Lihat Demo"
+            url = "https://demo.example.com"
+        }
+    } -ExpectedStatus 201
+    $buttonBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $buttonBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (button)" -Success $result.Success -Message $result.Error
+    
+    # 6. EMBED block
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks" -UseAuth $true -Body @{
+        block_type = "embed"
+        block_order = 5
+        payload = @{
+            html = "<iframe src=`"https://codepen.io/pen`" width=`"100%`" height=`"300`"></iframe>"
+            title = "CodePen Demo"
+        }
+    } -ExpectedStatus 201
+    $embedBlockId = $null
+    if ($result.Success -and $result.Data.data.id) { $embedBlockId = $result.Data.data.id }
+    Write-TestResult -Name "POST block (embed)" -Success $result.Success -Message $result.Error
+    
+    # Save first block ID for other tests
+    $Global:TestBlockId = $textBlockId
+    
+    # Test PATCH on text block
+    if ($textBlockId) {
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/$textBlockId" -UseAuth $true -Body @{
             payload = @{
-                content = "<p>Updated content</p>"
+                content = "<p>Updated text content</p>"
             }
         }
-        Write-TestResult -Name "PATCH /portfolios/{id}/blocks/{block_id}" -Success $result.Success -Message $result.Error
-        
-        # DELETE /portfolios/{id}/blocks/{block_id}
-        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/$Global:TestBlockId" -UseAuth $true
-        Write-TestResult -Name "DELETE /portfolios/{id}/blocks/{block_id}" -Success $result.Success -Message $result.Error
+        Write-TestResult -Name "PATCH block (text)" -Success $result.Success -Message $result.Error
     }
+    
+    # Test PATCH on image block
+    if ($imageBlockId) {
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/$imageBlockId" -UseAuth $true -Body @{
+            payload = @{
+                url = "https://picsum.photos/1200/800"
+                caption = "Updated image caption"
+            }
+        }
+        Write-TestResult -Name "PATCH block (image)" -Success $result.Success -Message $result.Error
+    }
+    
+    # Test PUT /portfolios/{id}/blocks/reorder
+    $blockIdsForReorder = @($textBlockId, $imageBlockId, $tableBlockId) | Where-Object { $_ -ne $null }
+    if ($blockIdsForReorder.Count -ge 2) {
+        $blockOrders = @()
+        $order = $blockIdsForReorder.Count - 1
+        foreach ($bid in $blockIdsForReorder) {
+            $blockOrders += @{ id = $bid; order = $order }
+            $order--
+        }
+        $result = Invoke-ApiRequest -Method "PUT" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/reorder" -UseAuth $true -Body @{
+            block_orders = $blockOrders
+        }
+        Write-TestResult -Name "PUT /portfolios/{id}/blocks/reorder" -Success $result.Success -Message $result.Error
+    } else {
+        Write-TestResult -Name "PUT /portfolios/{id}/blocks/reorder" -Skip $true -Message "Not enough blocks to reorder"
+    }
+    
+    # Cleanup - delete all test blocks
+    $blockIds = @($textBlockId, $imageBlockId, $tableBlockId, $youtubeBlockId, $buttonBlockId, $embedBlockId) | Where-Object { $_ -ne $null }
+    foreach ($blockId in $blockIds) {
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$Global:TestPortfolioId/blocks/$blockId" -UseAuth $true
+    }
+    Write-TestResult -Name "DELETE blocks (cleanup)" -Success $true
+}
+
+function Test-PortfolioStatusEndpoints {
+    Write-TestHeader "PORTFOLIO STATUS ENDPOINTS"
+    
+    if (-not $Global:AccessToken -or -not $Global:TestPortfolioId) {
+        Write-TestResult -Name "Portfolio status tests" -Skip $true -Message "No portfolio available"
+        return
+    }
+    
+    # POST /portfolios/{id}/archive
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/archive" -UseAuth $true
+    Write-TestResult -Name "POST /portfolios/{id}/archive" -Success $result.Success -Message $result.Error
+    
+    # POST /portfolios/{id}/unarchive
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$Global:TestPortfolioId/unarchive" -UseAuth $true
+    Write-TestResult -Name "POST /portfolios/{id}/unarchive" -Success $result.Success -Message $result.Error
 }
 
 function Test-SocialEndpoints {
@@ -387,22 +515,103 @@ function Test-AdminEndpoints {
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/users" -UseAuth $true
     Write-TestResult -Name "GET /admin/users" -Success $result.Success -Message $result.Error
     
+    # ========== JURUSAN CRUD ==========
     # GET /admin/jurusan
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/jurusan" -UseAuth $true
     Write-TestResult -Name "GET /admin/jurusan" -Success $result.Success -Message $result.Error
     
+    # POST /admin/jurusan
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/admin/jurusan" -UseAuth $true -Body @{
+        nama = "Test Jurusan"
+        kode = "testjur"
+    } -ExpectedStatus 201
+    $testJurusanId = $null
+    if ($result.Success -and $result.Data.data.id) { $testJurusanId = $result.Data.data.id }
+    Write-TestResult -Name "POST /admin/jurusan" -Success $result.Success -Message $result.Error
+    
+    # PATCH /admin/jurusan/{id}
+    if ($testJurusanId) {
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/admin/jurusan/$testJurusanId" -UseAuth $true -Body @{
+            nama = "Test Jurusan Updated"
+        }
+        Write-TestResult -Name "PATCH /admin/jurusan/{id}" -Success $result.Success -Message $result.Error
+        
+        # DELETE /admin/jurusan/{id}
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/admin/jurusan/$testJurusanId" -UseAuth $true
+        Write-TestResult -Name "DELETE /admin/jurusan/{id}" -Success $result.Success -Message $result.Error
+    }
+    
+    # ========== TAHUN AJARAN CRUD ==========
     # GET /admin/tahun-ajaran
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/tahun-ajaran" -UseAuth $true
     Write-TestResult -Name "GET /admin/tahun-ajaran" -Success $result.Success -Message $result.Error
     
+    # POST /admin/tahun-ajaran
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/admin/tahun-ajaran" -UseAuth $true -Body @{
+        tahun_mulai = 2099
+        is_active = $false
+    } -ExpectedStatus 201
+    $testTahunAjaranId = $null
+    if ($result.Success -and $result.Data.data.id) { $testTahunAjaranId = $result.Data.data.id }
+    Write-TestResult -Name "POST /admin/tahun-ajaran" -Success $result.Success -Message $result.Error
+    
+    # PATCH /admin/tahun-ajaran/{id}
+    if ($testTahunAjaranId) {
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/admin/tahun-ajaran/$testTahunAjaranId" -UseAuth $true -Body @{
+            promotion_month = 8
+        }
+        Write-TestResult -Name "PATCH /admin/tahun-ajaran/{id}" -Success $result.Success -Message $result.Error
+        
+        # DELETE /admin/tahun-ajaran/{id}
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/admin/tahun-ajaran/$testTahunAjaranId" -UseAuth $true
+        Write-TestResult -Name "DELETE /admin/tahun-ajaran/{id}" -Success $result.Success -Message $result.Error
+    }
+    
+    # ========== KELAS CRUD ==========
     # GET /admin/kelas
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/kelas" -UseAuth $true
     Write-TestResult -Name "GET /admin/kelas" -Success $result.Success -Message $result.Error
     
+    # Get existing jurusan and tahun_ajaran for creating kelas
+    $jurusanResult = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/jurusan" -UseAuth $true
+    $tahunResult = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/tahun-ajaran" -UseAuth $true
+    
+    if ($jurusanResult.Success -and $jurusanResult.Data.data.Count -gt 0 -and $tahunResult.Success -and $tahunResult.Data.data.Count -gt 0) {
+        $jurusanId = $jurusanResult.Data.data[0].id
+        $tahunAjaranId = $tahunResult.Data.data[0].id
+        
+        # POST /admin/kelas
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/admin/kelas" -UseAuth $true -Body @{
+            jurusan_id = $jurusanId
+            tahun_ajaran_id = $tahunAjaranId
+            tingkat = 10
+            rombel = "Z"
+        } -ExpectedStatus 201
+        $testKelasId = $null
+        if ($result.Success -and $result.Data.data.id) { $testKelasId = $result.Data.data.id }
+        Write-TestResult -Name "POST /admin/kelas" -Success $result.Success -Message $result.Error
+        
+        # PATCH /admin/kelas/{id}
+        if ($testKelasId) {
+            $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/admin/kelas/$testKelasId" -UseAuth $true -Body @{
+                tingkat = 11
+            }
+            Write-TestResult -Name "PATCH /admin/kelas/{id}" -Success $result.Success -Message $result.Error
+            
+            # DELETE /admin/kelas/{id}
+            $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/admin/kelas/$testKelasId" -UseAuth $true
+            Write-TestResult -Name "DELETE /admin/kelas/{id}" -Success $result.Success -Message $result.Error
+        }
+    } else {
+        Write-TestResult -Name "Kelas CRUD tests" -Skip $true -Message "No jurusan or tahun_ajaran available"
+    }
+    
+    # ========== TAGS ==========
     # GET /admin/tags
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/tags" -UseAuth $true
     Write-TestResult -Name "GET /admin/tags" -Success $result.Success -Message $result.Error
     
+    # ========== PORTFOLIOS ==========
     # GET /admin/portfolios/pending
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/portfolios/pending" -UseAuth $true
     Write-TestResult -Name "GET /admin/portfolios/pending" -Success $result.Success -Message $result.Error
@@ -410,6 +619,93 @@ function Test-AdminEndpoints {
     # GET /admin/portfolios
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/portfolios" -UseAuth $true
     Write-TestResult -Name "GET /admin/portfolios" -Success $result.Success -Message $result.Error
+    
+    # ========== PORTFOLIO MODERATION (APPROVE/REJECT) ==========
+    # Create a test portfolio for moderation testing
+    $moderationPortfolioId = $null
+    
+    # Create portfolio
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+        judul = "Test Portfolio for Moderation"
+    } -ExpectedStatus 201
+    
+    if ($result.Success -and $result.Data.data.id) {
+        $moderationPortfolioId = $result.Data.data.id
+        
+        # Add thumbnail (required for submit)
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$moderationPortfolioId" -UseAuth $true -Body @{
+            thumbnail_url = "https://picsum.photos/800/600"
+        }
+        
+        # Add a content block (required for submit)
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$moderationPortfolioId/blocks" -UseAuth $true -Body @{
+            block_type = "text"
+            block_order = 0
+            payload = @{
+                content = "<p>Test content for moderation</p>"
+            }
+        } -ExpectedStatus 201
+        
+        # Submit for review
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$moderationPortfolioId/submit" -UseAuth $true
+        
+        if ($result.Success) {
+            # Test APPROVE endpoint
+            $result = Invoke-ApiRequest -Method "POST" -Endpoint "/admin/portfolios/$moderationPortfolioId/approve" -UseAuth $true -Body @{
+                note = "Approved by test script"
+            }
+            Write-TestResult -Name "POST /admin/portfolios/{id}/approve" -Success $result.Success -Message $result.Error
+            
+            # Cleanup - delete the approved portfolio
+            Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$moderationPortfolioId" -UseAuth $true | Out-Null
+        } else {
+            Write-TestResult -Name "POST /admin/portfolios/{id}/approve" -Skip $true -Message "Could not submit portfolio for review"
+        }
+    } else {
+        Write-TestResult -Name "POST /admin/portfolios/{id}/approve" -Skip $true -Message "Could not create test portfolio"
+    }
+    
+    # Create another portfolio for REJECT test
+    $rejectPortfolioId = $null
+    $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+        judul = "Test Portfolio for Rejection"
+    } -ExpectedStatus 201
+    
+    if ($result.Success -and $result.Data.data.id) {
+        $rejectPortfolioId = $result.Data.data.id
+        
+        # Add thumbnail
+        $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$rejectPortfolioId" -UseAuth $true -Body @{
+            thumbnail_url = "https://picsum.photos/800/600"
+        }
+        
+        # Add content block
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$rejectPortfolioId/blocks" -UseAuth $true -Body @{
+            block_type = "text"
+            block_order = 0
+            payload = @{
+                content = "<p>Test content for rejection</p>"
+            }
+        } -ExpectedStatus 201
+        
+        # Submit for review
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$rejectPortfolioId/submit" -UseAuth $true
+        
+        if ($result.Success) {
+            # Test REJECT endpoint
+            $result = Invoke-ApiRequest -Method "POST" -Endpoint "/admin/portfolios/$rejectPortfolioId/reject" -UseAuth $true -Body @{
+                note = "Rejected by test script - testing purposes"
+            }
+            Write-TestResult -Name "POST /admin/portfolios/{id}/reject" -Success $result.Success -Message $result.Error
+            
+            # Cleanup - delete the rejected portfolio
+            Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$rejectPortfolioId" -UseAuth $true | Out-Null
+        } else {
+            Write-TestResult -Name "POST /admin/portfolios/{id}/reject" -Skip $true -Message "Could not submit portfolio for review"
+        }
+    } else {
+        Write-TestResult -Name "POST /admin/portfolios/{id}/reject" -Skip $true -Message "Could not create test portfolio"
+    }
 }
 
 function Test-Cleanup {
@@ -524,6 +820,14 @@ function Test-StudentEndpoints {
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/me/portfolios" -UseAuth $true
     Write-TestResult -Name "GET /me/portfolios (student)" -Success $result.Success -Message $result.Error
     
+    # GET /portfolios/{slug} - Student views published portfolio by slug
+    $publicPortfolios = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios?limit=1"
+    if ($publicPortfolios.Success -and $publicPortfolios.Data.data -and $publicPortfolios.Data.data.Count -gt 0) {
+        $testSlug = $publicPortfolios.Data.data[0].slug
+        $result = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios/$testSlug" -UseAuth $true
+        Write-TestResult -Name "GET /portfolios/{slug} (student)" -Success $result.Success -Message $result.Error
+    }
+    
     # Student updates own portfolio
     if ($studentPortfolioId) {
         $result = Invoke-ApiRequest -Method "PATCH" -Endpoint "/portfolios/$studentPortfolioId" -UseAuth $true -Body @{
@@ -573,6 +877,14 @@ function Test-StudentEndpoints {
         $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
         Write-TestResult -Name "DELETE /portfolios/{id}/like (student)" -Success ($result.Success -or $result.StatusCode -eq 400) -Message $result.Error
     }
+    
+    # Student search users
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/search/users?q=admin" -UseAuth $true
+    Write-TestResult -Name "GET /search/users (student)" -Success $result.Success -Message $result.Error
+    
+    # Student search portfolios
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/search/portfolios?q=web" -UseAuth $true
+    Write-TestResult -Name "GET /search/portfolios (student)" -Success $result.Success -Message $result.Error
     
     # Cleanup - delete student test portfolio
     if ($studentPortfolioId) {
@@ -652,9 +964,57 @@ function Test-AlumniEndpoints {
         Write-TestResult -Name "POST /portfolios (alumni)" -Success $false -Message $result.Error
     }
     
+    # GET /portfolios/{slug} - Alumni views published portfolio by slug
+    $publicPortfolios = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios?limit=1"
+    if ($publicPortfolios.Success -and $publicPortfolios.Data.data -and $publicPortfolios.Data.data.Count -gt 0) {
+        $testSlug = $publicPortfolios.Data.data[0].slug
+        $result = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios/$testSlug" -UseAuth $true
+        Write-TestResult -Name "GET /portfolios/{slug} (alumni)" -Success $result.Success -Message $result.Error
+    }
+    
     # Alumni CANNOT access admin endpoints
     $result = Invoke-ApiRequest -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true -ExpectedStatus 403
     Write-TestResult -Name "GET /admin/dashboard/stats (alumni - expect 403)" -Success $result.Success -Message $(if (-not $result.Success) { "Got status $($result.StatusCode) instead of 403" })
+    
+    # Alumni follow/unfollow another user
+    $targetUser = $null
+    $usersResult = Invoke-ApiRequest -Method "GET" -Endpoint "/users?limit=10"
+    if ($usersResult.Success -and $usersResult.Data.data) {
+        foreach ($user in $usersResult.Data.data) {
+            if ($user.username -ne $alumniUsername) {
+                $targetUser = $user.username
+                break
+            }
+        }
+    }
+    
+    if ($targetUser) {
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/users/$targetUser/follow" -UseAuth $true
+        Write-TestResult -Name "POST /users/{username}/follow (alumni)" -Success ($result.Success -or $result.StatusCode -eq 409) -Message $result.Error
+        
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/users/$targetUser/follow" -UseAuth $true
+        Write-TestResult -Name "DELETE /users/{username}/follow (alumni)" -Success ($result.Success -or $result.StatusCode -eq 400) -Message $result.Error
+    }
+    
+    # Alumni like/unlike portfolio
+    $portfolioResult = Invoke-ApiRequest -Method "GET" -Endpoint "/portfolios?limit=1"
+    if ($portfolioResult.Success -and $portfolioResult.Data.data -and $portfolioResult.Data.data.Count -gt 0) {
+        $portfolioToLike = $portfolioResult.Data.data[0].id
+        
+        $result = Invoke-ApiRequest -Method "POST" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+        Write-TestResult -Name "POST /portfolios/{id}/like (alumni)" -Success ($result.Success -or $result.StatusCode -eq 409) -Message $result.Error
+        
+        $result = Invoke-ApiRequest -Method "DELETE" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+        Write-TestResult -Name "DELETE /portfolios/{id}/like (alumni)" -Success ($result.Success -or $result.StatusCode -eq 400) -Message $result.Error
+    }
+    
+    # Alumni search users
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/search/users?q=admin" -UseAuth $true
+    Write-TestResult -Name "GET /search/users (alumni)" -Success $result.Success -Message $result.Error
+    
+    # Alumni search portfolios
+    $result = Invoke-ApiRequest -Method "GET" -Endpoint "/search/portfolios?q=web" -UseAuth $true
+    Write-TestResult -Name "GET /search/portfolios (alumni)" -Success $result.Success -Message $result.Error
     
     # Cleanup - delete alumni test portfolio
     if ($alumniPortfolioId) {
@@ -695,6 +1055,7 @@ Test-ProfileEndpoints
 Test-UserEndpoints
 Test-PortfolioEndpoints
 Test-ContentBlockEndpoints
+Test-PortfolioStatusEndpoints
 Test-SocialEndpoints
 Test-FeedEndpoints
 Test-AdminEndpoints

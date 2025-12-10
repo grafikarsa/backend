@@ -120,6 +120,15 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 		})
 	}
 
+	// Calculate tahun_lulus from tahun_masuk + 3 if not set
+	var tahunLulus *int
+	if user.TahunLulus != nil {
+		tahunLulus = user.TahunLulus
+	} else if user.TahunMasuk != nil {
+		calculated := *user.TahunMasuk + 3
+		tahunLulus = &calculated
+	}
+
 	userDTO := dto.UserDetailDTO{
 		ID:             user.ID,
 		Username:       user.Username,
@@ -129,7 +138,7 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 		BannerURL:      user.BannerURL,
 		Role:           string(user.Role),
 		TahunMasuk:     user.TahunMasuk,
-		TahunLulus:     user.TahunLulus,
+		TahunLulus:     tahunLulus,
 		ClassHistory:   historyDTOs,
 		SocialLinks:    socialLinks,
 		FollowerCount:  followerCount,

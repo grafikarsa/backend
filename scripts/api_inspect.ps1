@@ -192,7 +192,14 @@ function Inspect-AllEndpoints {
     Invoke-ApiInspect -Method "GET" -Endpoint "/kelas"
     Invoke-ApiInspect -Method "GET" -Endpoint "/tags"
     Invoke-ApiInspect -Method "GET" -Endpoint "/users?limit=3"
-    Invoke-ApiInspect -Method "GET" -Endpoint "/portfolios?limit=3"
+    $portfoliosResult = Invoke-ApiInspect -Method "GET" -Endpoint "/portfolios?limit=3"
+    
+    # GET /portfolios/{slug} - Get portfolio by slug
+    if ($portfoliosResult.Content -and $portfoliosResult.Content.data -and $portfoliosResult.Content.data.Count -gt 0) {
+        $testSlug = $portfoliosResult.Content.data[0].slug
+        Invoke-ApiInspect -Method "GET" -Endpoint "/portfolios/$testSlug"
+    }
+    
     Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin"
     Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/followers?limit=3"
     Invoke-ApiInspect -Method "GET" -Endpoint "/users/admin/following?limit=3"
@@ -228,12 +235,114 @@ function Inspect-AllEndpoints {
         Write-Header "ADMIN ENDPOINTS"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/users?limit=3" -UseAuth $true
+        
+        Write-Header "ADMIN JURUSAN CRUD"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/jurusan" -UseAuth $true
+        $jurusanResult = Invoke-ApiInspect -Method "POST" -Endpoint "/admin/jurusan" -UseAuth $true -Body @{
+            nama = "Test Jurusan Inspect"
+            kode = "testinsp"
+        }
+        if ($jurusanResult.Content -and $jurusanResult.Content.data.id) {
+            $testJurusanId = $jurusanResult.Content.data.id
+            Invoke-ApiInspect -Method "PATCH" -Endpoint "/admin/jurusan/$testJurusanId" -UseAuth $true -Body @{
+                nama = "Test Jurusan Updated"
+            }
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/admin/jurusan/$testJurusanId" -UseAuth $true
+        }
+        
+        Write-Header "ADMIN TAHUN AJARAN CRUD"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/tahun-ajaran" -UseAuth $true
+        $tahunResult = Invoke-ApiInspect -Method "POST" -Endpoint "/admin/tahun-ajaran" -UseAuth $true -Body @{
+            tahun_mulai = 2098
+            is_active = $false
+        }
+        if ($tahunResult.Content -and $tahunResult.Content.data.id) {
+            $testTahunId = $tahunResult.Content.data.id
+            Invoke-ApiInspect -Method "PATCH" -Endpoint "/admin/tahun-ajaran/$testTahunId" -UseAuth $true -Body @{
+                promotion_month = 8
+            }
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/admin/tahun-ajaran/$testTahunId" -UseAuth $true
+        }
+        
+        Write-Header "ADMIN KELAS CRUD"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/kelas?limit=5" -UseAuth $true
+        
+        Write-Header "ADMIN TAGS"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/tags" -UseAuth $true
+        
+        Write-Header "ADMIN PORTFOLIOS"
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/portfolios?limit=3" -UseAuth $true
         Invoke-ApiInspect -Method "GET" -Endpoint "/admin/portfolios/pending?limit=3" -UseAuth $true
+        
+        Write-Header "ADMIN PORTFOLIO MODERATION (APPROVE/REJECT)"
+        
+        # Create portfolio for approve test
+        $approveTestResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+            judul = "Test Portfolio for Approve"
+        }
+        
+        if ($approveTestResult.Content -and $approveTestResult.Content.data.id) {
+            $approvePortfolioId = $approveTestResult.Content.data.id
+            
+            # Add thumbnail
+            Invoke-ApiInspect -Method "PATCH" -Endpoint "/portfolios/$approvePortfolioId" -UseAuth $true -Body @{
+                thumbnail_url = "https://picsum.photos/800/600"
+            } | Out-Null
+            
+            # Add content block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$approvePortfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "text"
+                block_order = 0
+                payload = @{ content = "<p>Test content</p>" }
+            } | Out-Null
+            
+            # Submit for review
+            $submitResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$approvePortfolioId/submit" -UseAuth $true
+            
+            if ($submitResult.StatusCode -eq 200) {
+                # Test APPROVE
+                Invoke-ApiInspect -Method "POST" -Endpoint "/admin/portfolios/$approvePortfolioId/approve" -UseAuth $true -Body @{
+                    note = "Approved via inspect script"
+                }
+            }
+            
+            # Cleanup
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$approvePortfolioId" -UseAuth $true | Out-Null
+        }
+        
+        # Create portfolio for reject test
+        $rejectTestResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios" -UseAuth $true -Body @{
+            judul = "Test Portfolio for Reject"
+        }
+        
+        if ($rejectTestResult.Content -and $rejectTestResult.Content.data.id) {
+            $rejectPortfolioId = $rejectTestResult.Content.data.id
+            
+            # Add thumbnail
+            Invoke-ApiInspect -Method "PATCH" -Endpoint "/portfolios/$rejectPortfolioId" -UseAuth $true -Body @{
+                thumbnail_url = "https://picsum.photos/800/600"
+            } | Out-Null
+            
+            # Add content block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$rejectPortfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "text"
+                block_order = 0
+                payload = @{ content = "<p>Test content</p>" }
+            } | Out-Null
+            
+            # Submit for review
+            $submitResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$rejectPortfolioId/submit" -UseAuth $true
+            
+            if ($submitResult.StatusCode -eq 200) {
+                # Test REJECT
+                Invoke-ApiInspect -Method "POST" -Endpoint "/admin/portfolios/$rejectPortfolioId/reject" -UseAuth $true -Body @{
+                    note = "Rejected via inspect script - testing purposes"
+                }
+            }
+            
+            # Cleanup
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$rejectPortfolioId" -UseAuth $true | Out-Null
+        }
         
         Write-Header "PORTFOLIO CRUD DEMO"
         
@@ -253,28 +362,96 @@ function Inspect-AllEndpoints {
                 judul = "Demo Portfolio Updated"
             }
             
-            # Add content block
-            $blockResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+            Write-Header "CONTENT BLOCKS - ALL TYPES"
+            
+            # 1. TEXT block
+            $textBlockResult = Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
                 block_type = "text"
                 block_order = 0
                 payload = @{
-                    content = "<p>Ini adalah content block demo</p>"
+                    content = "<p>Ini adalah content block text</p>"
                 }
             }
             
-            if ($blockResult.Content -and $blockResult.Content.data.id) {
-                $blockId = $blockResult.Content.data.id
-                
-                # Update block
+            # 2. IMAGE block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "image"
+                block_order = 1
+                payload = @{
+                    url = "https://picsum.photos/800/600"
+                    caption = "Screenshot aplikasi"
+                }
+            }
+            
+            # 3. TABLE block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "table"
+                block_order = 2
+                payload = @{
+                    headers = @("Fitur", "Deskripsi")
+                    rows = @(@("Login", "Autentikasi user"), @("Dashboard", "Halaman utama"))
+                }
+            }
+            
+            # 4. YOUTUBE block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "youtube"
+                block_order = 3
+                payload = @{
+                    video_id = "dQw4w9WgXcQ"
+                    title = "Demo Video"
+                }
+            }
+            
+            # 5. BUTTON block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "button"
+                block_order = 4
+                payload = @{
+                    text = "Lihat Demo"
+                    url = "https://demo.example.com"
+                }
+            }
+            
+            # 6. EMBED block
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/blocks" -UseAuth $true -Body @{
+                block_type = "embed"
+                block_order = 5
+                payload = @{
+                    html = "<iframe src=`"https://codepen.io/pen`"></iframe>"
+                    title = "CodePen Demo"
+                }
+            }
+            
+            # Update text block and test reorder
+            if ($textBlockResult.Content -and $textBlockResult.Content.data.id) {
+                $blockId = $textBlockResult.Content.data.id
                 Invoke-ApiInspect -Method "PATCH" -Endpoint "/portfolios/$portfolioId/blocks/$blockId" -UseAuth $true -Body @{
                     payload = @{
                         content = "<p>Content block updated</p>"
                     }
                 }
                 
-                # Delete block
+                # Reorder blocks (swap order of first two blocks)
+                Invoke-ApiInspect -Method "PUT" -Endpoint "/portfolios/$portfolioId/blocks/reorder" -UseAuth $true -Body @{
+                    block_orders = @(
+                        @{ id = $blockId; order = 1 }
+                    )
+                }
+                
                 Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$portfolioId/blocks/$blockId" -UseAuth $true
             }
+            
+            Write-Header "PORTFOLIO STATUS ENDPOINTS"
+            
+            # Submit (will fail - no thumbnail)
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/submit" -UseAuth $true
+            
+            # Archive
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/archive" -UseAuth $true
+            
+            # Unarchive
+            Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioId/unarchive" -UseAuth $true
             
             # Delete portfolio
             Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$portfolioId" -UseAuth $true
@@ -327,6 +504,22 @@ function Inspect-AllEndpoints {
             Write-Header "STUDENT ADMIN ACCESS (SHOULD FAIL)"
             Invoke-ApiInspect -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true
             Invoke-ApiInspect -Method "GET" -Endpoint "/admin/users?limit=1" -UseAuth $true
+            
+            Write-Header "STUDENT SOCIAL (FOLLOW/LIKE)"
+            Invoke-ApiInspect -Method "POST" -Endpoint "/users/admin/follow" -UseAuth $true
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/users/admin/follow" -UseAuth $true
+            
+            # Like a portfolio
+            $portfolioResult = Invoke-ApiInspect -Method "GET" -Endpoint "/portfolios?limit=1"
+            if ($portfolioResult.Content -and $portfolioResult.Content.data -and $portfolioResult.Content.data.Count -gt 0) {
+                $portfolioToLike = $portfolioResult.Content.data[0].id
+                Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+                Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+            }
+            
+            Write-Header "STUDENT SEARCH"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/search/users?q=admin" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/search/portfolios?q=web" -UseAuth $true
             
             Write-Header "STUDENT PORTFOLIO CRUD"
             # Create portfolio as student
@@ -390,6 +583,22 @@ function Inspect-AllEndpoints {
             
             Write-Header "ALUMNI ADMIN ACCESS (SHOULD FAIL)"
             Invoke-ApiInspect -Method "GET" -Endpoint "/admin/dashboard/stats" -UseAuth $true
+            
+            Write-Header "ALUMNI SOCIAL (FOLLOW/LIKE)"
+            Invoke-ApiInspect -Method "POST" -Endpoint "/users/admin/follow" -UseAuth $true
+            Invoke-ApiInspect -Method "DELETE" -Endpoint "/users/admin/follow" -UseAuth $true
+            
+            # Like a portfolio
+            $portfolioResult = Invoke-ApiInspect -Method "GET" -Endpoint "/portfolios?limit=1"
+            if ($portfolioResult.Content -and $portfolioResult.Content.data -and $portfolioResult.Content.data.Count -gt 0) {
+                $portfolioToLike = $portfolioResult.Content.data[0].id
+                Invoke-ApiInspect -Method "POST" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+                Invoke-ApiInspect -Method "DELETE" -Endpoint "/portfolios/$portfolioToLike/like" -UseAuth $true
+            }
+            
+            Write-Header "ALUMNI SEARCH"
+            Invoke-ApiInspect -Method "GET" -Endpoint "/search/users?q=admin" -UseAuth $true
+            Invoke-ApiInspect -Method "GET" -Endpoint "/search/portfolios?q=web" -UseAuth $true
             
             Write-Header "LOGOUT (ALUMNI)"
             Invoke-ApiInspect -Method "POST" -Endpoint "/auth/logout" -UseAuth $true

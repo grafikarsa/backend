@@ -312,6 +312,9 @@ func (h *PortfolioHandler) Update(c *fiber.Ctx) error {
 	if req.Judul != nil {
 		portfolio.Judul = *req.Judul
 	}
+	if req.ThumbnailURL != nil {
+		portfolio.ThumbnailURL = req.ThumbnailURL
+	}
 
 	if err := h.portfolioRepo.Update(portfolio); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(

@@ -57,8 +57,8 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 13. [Admin - Tahun Ajaran](#13-admin---tahun-ajaran)
 14. [Admin - Kelas](#14-admin---kelas)
 15. [Admin - Users](#15-admin---users)
-16. [Admin - Moderasi](#16-admin---moderasi)
-17. [Admin - Tags](#17-admin---tags)
+16. [Admin - Tags](#16-admin---tags)
+17. [Admin - Moderasi](#17-admin---moderasi)
 18. [Admin - Dashboard](#18-admin---dashboard)
 19. [Public - Jurusan & Kelas](#19-public---jurusan--kelas)
 
@@ -371,7 +371,7 @@ Detail profil user berdasarkan username.
     "banner_url": "https://cdn.grafikarsa.com/banners/john.jpg",
     "role": "student",
     "tahun_masuk": 2023,
-    "tahun_lulus": null,
+    "tahun_lulus": 2026,
     "kelas": {
       "id": "660e8400-e29b-41d4-a716-446655440000",
       "nama": "XII-RPL-A"
@@ -504,7 +504,7 @@ Profil user yang sedang login.
     "nisn": "0098115881",
     "nis": "25491/02000.0411",
     "tahun_masuk": 2023,
-    "tahun_lulus": null,
+    "tahun_lulus": 2026,
     "kelas": {
       "id": "660e8400-e29b-41d4-a716-446655440000",
       "nama": "XII-RPL-A"
@@ -932,7 +932,6 @@ Daftar semua portfolio milik user yang login (termasuk draft, pending, rejected,
       "slug": "website-portfolio-pribadi",
       "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
       "status": "published",
-      "published_at": "2025-12-01T10:00:00Z",
       "created_at": "2025-11-25T08:00:00Z",
       "updated_at": "2025-12-01T09:30:00Z",
       "like_count": 45
@@ -943,7 +942,6 @@ Daftar semua portfolio milik user yang login (termasuk draft, pending, rejected,
       "slug": "desain-logo-keren",
       "thumbnail_url": null,
       "status": "draft",
-      "published_at": null,
       "created_at": "2025-12-05T08:00:00Z",
       "updated_at": "2025-12-05T08:00:00Z",
       "like_count": 0
@@ -955,7 +953,6 @@ Daftar semua portfolio milik user yang login (termasuk draft, pending, rejected,
       "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio3.jpg",
       "status": "rejected",
       "admin_review_note": "Konten tidak sesuai dengan ketentuan. Mohon perbaiki bagian X.",
-      "reviewed_at": "2025-12-04T14:00:00Z",
       "created_at": "2025-12-03T08:00:00Z",
       "updated_at": "2025-12-03T08:00:00Z",
       "like_count": 0
@@ -1028,7 +1025,7 @@ Buat portfolio baru (status default: draft).
 
 ---
 
-### GET /portfolios/{id}
+### GET /portfolios/id/{id}
 
 Detail portfolio berdasarkan ID (untuk edit).
 
@@ -1048,6 +1045,7 @@ Update portfolio.
 ```json
 {
   "judul": "Website Portfolio Pribadi - Updated",
+  "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
   "tag_ids": ["tag-uuid-1", "tag-uuid-3"]
 }
 ```
@@ -1093,9 +1091,9 @@ Update portfolio.
 
 ---
 
-### Uplo /portfoliio Thumbnail
+### Upload portfoliio Thumbnail
 
-Untuk upload thumbnail portfoliunakan [File Upload (MinIO)](#7-file-upload-minio) dengan `upload_type: "thumbnail"`.
+Untuk upload thumbnail portfolio gunakan [File Upload (MinIO)](#7-file-upload-minio) dengan `upload_type: "thumbnail"`.
 
 **Flow:**
 1. `POST /uploads/presign` dengan `upload_type: "thumbnail"` dan `portfolio_id`
@@ -1860,35 +1858,7 @@ File yang sudah diupload akan diakses melalui CDN:
 
 ---
 
-## 8. Social (Follow)**Authentication:** None
-
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| search | string | Cari berdasarkan nama tag |
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "data": [
-    { "id": "tag-uuid-1", "nama": "Web Development" },
-    { "id": "tag-uuid-2", "nama": "Mobile App" },
-    { "id": "tag-uuid-3", "nama": "UI/UX Design" },
-    { "id": "tag-uuid-4", "nama": "Graphic Design" },
-    { "id": "tag-uuid-5", "nama": "3D Modeling" },
-    { "id": "tag-uuid-6", "nama": "Animation" },
-    { "id": "tag-uuid-7", "nama": "Video Editing" },
-    { "id": "tag-uuid-8", "nama": "Photography" },
-    { "id": "tag-uuid-9", "nama": "Illustration" },
-    { "id": "tag-uuid-10", "nama": "Game Development" }
-  ]
-}
-```
-
----
-
-## 9. Social (Follow)
+## 8. Social (Follow)
 
 ### POST /users/{username}/follow
 
@@ -1972,7 +1942,7 @@ Unfollow user.
 
 ---
 
-## 10. Likes
+## 9. Likes
 
 ### POST /portfolios/{id}/like
 
@@ -2027,7 +1997,7 @@ Unlike portfolio.
 
 ---
 
-## 11. Search
+## 10. Search
 
 ### GET /search/users
 
@@ -2092,7 +2062,7 @@ Cari portfolio.
 
 ---
 
-## 12. Feed
+## 11. Feed
 
 ### GET /feed
 
@@ -2118,7 +2088,6 @@ Timeline portfolio dari user yang di-follow (untuk user yang login).
       "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
       "published_at": "2025-12-09T10:00:00Z",
       "like_count": 45,
-      "is_liked": true,
       "user": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
         "username": "john_doe",
@@ -2143,7 +2112,7 @@ Timeline portfolio dari user yang di-follow (untuk user yang login).
 
 ---
 
-## 13. Admin - Jurusan
+## 12. Admin - Jurusan
 
 ### GET /admin/jurusan
 
@@ -2294,7 +2263,7 @@ Hapus jurusan (soft delete).
 
 ---
 
-## 14. Admin - Tahun Ajaran
+## 13. Admin - Tahun Ajaran
 
 ### GET /admin/tahun-ajaran
 
@@ -2432,7 +2401,7 @@ Hapus tahun ajaran.
 
 ---
 
-## 15. Admin - Kelas
+## 14. Admin - Kelas
 
 ### GET /admin/kelas
 
@@ -2639,7 +2608,7 @@ Daftar siswa dalam kelas.
 
 ---
 
-## 16. Admin - Users
+## 15. Admin - Users
 
 ### GET /admin/users
 
@@ -2681,7 +2650,7 @@ Daftar semua user (untuk admin).
         "nama": "Rekayasa Perangkat Lunak"
       },
       "tahun_masuk": 2023,
-      "tahun_lulus": null,
+      "tahun_lulus": 2026,
       "is_active": true,
       "last_login_at": "2025-12-09T08:00:00Z",
       "created_at": "2023-07-15T08:00:00Z"
@@ -2798,7 +2767,7 @@ Detail user.
       "nama": "Rekayasa Perangkat Lunak"
     },
     "tahun_masuk": 2023,
-    "tahun_lulus": null,
+    "tahun_lulus": 2026,
     "class_history": [
       {
         "kelas_nama": "X-RPL-A",
@@ -2934,7 +2903,7 @@ Aktifkan user.
 
 ---
 
-## 17. Admin - Tags
+## 16. Admin - Tags
 
 ### GET /admin/tags
 
@@ -3050,7 +3019,7 @@ Hapus tag.
 
 ---
 
-## 18. Admin - Moderasi Portfolio
+## 17. Admin - Moderasi
 
 ### GET /admin/portfolios/pending
 
@@ -3303,7 +3272,7 @@ Hapus portfolio (admin).
 
 ---
 
-## 19. Admin - Dashboard
+## 18. Admin - Dashboard
 
 ### GET /admin/dashboard/stats
 
@@ -3345,7 +3314,7 @@ Statistik dashboard admin.
 
 ---
 
-## 20. Public - Jurusan & Kelas
+## 19. Public - Jurusan & Kelas
 
 ### GET /jurusan
 
