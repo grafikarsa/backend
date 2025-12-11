@@ -1170,11 +1170,11 @@ var portfolioTitles = []string{
 }
 
 var bioTemplates = []string{
-	"Siswa %s yang passionate di bidang teknologi dan desain.",
+	"Siswa yang passionate di bidang teknologi dan desain.",
 	"Suka coding dan membuat aplikasi yang bermanfaat.",
 	"Tertarik dengan UI/UX design dan web development.",
 	"Hobi membuat konten kreatif dan video editing.",
-	"Belajar programming sejak SMP, sekarang fokus di %s.",
+	"Belajar programming sejak SMP.",
 	"Dream big, start small, act now.",
 	"Kreator konten digital dan graphic designer.",
 	"Full-stack developer in training.",
@@ -1221,7 +1221,7 @@ func seedUsers(db *sql.DB, count int, kelasIDs []string) ([]string, error) {
 		username := strings.ToLower(firstName) + strings.ToLower(lastName[:3]) + fmt.Sprintf("%d", rand.Intn(999))
 		email := username + "@example.com"
 		role := roles[rand.Intn(len(roles))]
-		bio := fmt.Sprintf(bioTemplates[rand.Intn(len(bioTemplates))], "RPL")
+		bio := bioTemplates[rand.Intn(len(bioTemplates))]
 		tahunMasuk := 2020 + rand.Intn(5)
 		avatarURL := fmt.Sprintf("https://i.pravatar.cc/300?u=%s", username)
 		bannerURL := fmt.Sprintf("https://picsum.photos/seed/%s/1200/400", username)
