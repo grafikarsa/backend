@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build:
@@ -19,7 +17,7 @@ services:
       - DB_SSLMODE=disable
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=grafikarsa
       - MINIO_USE_SSL=false
       - STORAGE_PUBLIC_URL=http://localhost:9000/grafikarsa
@@ -32,7 +30,7 @@ services:
       postgres:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
     networks:
       - grafikarsa-network
     restart: unless-stopped
@@ -40,7 +38,7 @@ services:
   postgres:
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=grafikarsa
       - POSTGRES_PASSWORD=grafikarsa_secret
@@ -68,6 +66,12 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - grafikarsa-network
     restart: unless-stopped
@@ -75,11 +79,12 @@ services:
   createbuckets:
     image: minio/mc
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      sleep 2;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
       /usr/bin/mc mb myminio/grafikarsa --ignore-existing;
       /usr/bin/mc anonymous set public myminio/grafikarsa;
       exit 0;

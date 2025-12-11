@@ -190,7 +190,7 @@ Generate presigned URL untuk view file private (jika diperlukan).
 ## MinIO Bucket Structure
 
 ```
-grafikarsa-uploads/
+grafikarsa/
 ├── avatars/
 │   └── {user_id}/
 │       ├── abc123.jpg
@@ -658,11 +658,11 @@ MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=your-secret-key-here
 MINIO_USE_SSL=false
-MINIO_BUCKET=grafikarsa-uploads
+MINIO_BUCKET=grafikarsa
 
 # Public URL for accessing files
 # Development: MinIO direct
-MINIO_PUBLIC_URL=http://localhost:9000/grafikarsa-uploads
+MINIO_PUBLIC_URL=http://localhost:9000/grafikarsa
 
 # Production: Through CDN/Nginx
 # MINIO_PUBLIC_URL=https://cdn.grafikarsa.com
@@ -717,7 +717,7 @@ volumes:
 ```nginx
 # Proxy untuk akses file publik
 location /storage/ {
-    proxy_pass http://minio:9000/grafikarsa-uploads/;
+    proxy_pass http://minio:9000/grafikarsa/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     

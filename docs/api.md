@@ -1542,7 +1542,7 @@ Request presigned URL untuk upload file ke MinIO.
   "success": true,
   "data": {
     "upload_id": "upload-uuid-123",
-    "presigned_url": "https://minio.grafikarsa.com/grafikarsa-uploads/avatars/550e8400.../abc123.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...&X-Amz-Date=...&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=...",
+    "presigned_url": "https://minio.grafikarsa.com/grafikarsa/avatars/550e8400.../abc123.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...&X-Amz-Date=...&X-Amz-Expires=900&X-Amz-SignedHeaders=host&X-Amz-Signature=...",
     "object_key": "avatars/550e8400-e29b-41d4-a716-446655440000/abc123.jpg",
     "expires_in": 900,
     "method": "PUT",
@@ -1637,7 +1637,7 @@ async function uploadToMinIO(presignedData, file) {
 curl -X PUT \
   -H "Content-Type: image/jpeg" \
   --data-binary @profile.jpg \
-  "https://minio.grafikarsa.com/grafikarsa-uploads/avatars/550e8400.../abc123.jpg?X-Amz-Algorithm=..."
+  "https://minio.grafikarsa.com/grafikarsa/avatars/550e8400.../abc123.jpg?X-Amz-Algorithm=..."
 ```
 
 **MinIO Response:**
@@ -1782,7 +1782,7 @@ Generate presigned URL untuk view/download file private (jika diperlukan).
 {
   "success": true,
   "data": {
-    "url": "https://minio.grafikarsa.com/grafikarsa-uploads/...?X-Amz-...",
+    "url": "https://minio.grafikarsa.com/grafikarsa/...?X-Amz-...",
     "expires_in": 3600
   }
 }
@@ -1828,7 +1828,7 @@ const newAvatarUrl = confirmResponse.data.data.url;
 ### MinIO Bucket Structure
 
 ```
-grafikarsa-uploads/
+grafikarsa/
 ├── avatars/
 │   └── {user_id}/
 │       └── {uuid}.{ext}

@@ -89,30 +89,40 @@ func (r *UserRepository) List(search string, jurusanID, kelasID *uuid.UUID, role
 	var users []domain.User
 	var total int64
 
-	query := r.db.Model(&domain.User{}).Where("deleted_at IS NULL")
+	// Base query for counting
+	countQuery := r.db.Model(&domain.User{}).Where("users.deleted_at IS NULL")
+
+	// Base query for fetching
+	fetchQuery := r.db.Model(&domain.User{}).Where("users.deleted_at IS NULL")
 
 	if search != "" {
-		query = query.Where("nama ILIKE ? OR username ILIKE ? OR bio ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+		searchCondition := "users.nama ILIKE ? OR users.username ILIKE ? OR users.bio ILIKE ?"
+		countQuery = countQuery.Where(searchCondition, "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		fetchQuery = fetchQuery.Where(searchCondition, "%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	if role != nil {
-		query = query.Where("role = ?", *role)
+		countQuery = countQuery.Where("users.role = ?", *role)
+		fetchQuery = fetchQuery.Where("users.role = ?", *role)
 	}
 
 	if kelasID != nil {
-		query = query.Where("kelas_id = ?", *kelasID)
+		countQuery = countQuery.Where("users.kelas_id = ?", *kelasID)
+		fetchQuery = fetchQuery.Where("users.kelas_id = ?", *kelasID)
 	} else if jurusanID != nil {
-		query = query.Joins("JOIN kelas ON users.kelas_id = kelas.id").
-			Where("kelas.jurusan_id = ?", *jurusanID)
+		// Use subquery to find users whose kelas belongs to the jurusan
+		countQuery = countQuery.Where("users.kelas_id IN (SELECT id FROM kelas WHERE jurusan_id = ? AND deleted_at IS NULL)", *jurusanID)
+		fetchQuery = fetchQuery.Where("users.kelas_id IN (SELECT id FROM kelas WHERE jurusan_id = ? AND deleted_at IS NULL)", *jurusanID)
 	}
 
-	query.Count(&total)
+	// Count total
+	countQuery.Count(&total)
 
+	// Fetch with pagination
 	offset := (page - 1) * limit
-	err := query.Preload("Kelas.Jurusan").
+	err := fetchQuery.Preload("Kelas.Jurusan").
 		Offset(offset).Limit(limit).
-		Order("nama ASC").
+		Order("users.nama ASC").
 		Find(&users).Error
 
 	return users, total, err
