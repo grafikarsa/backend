@@ -13,6 +13,7 @@ type PortfolioListDTO struct {
 	Slug         string            `json:"slug"`
 	ThumbnailURL *string           `json:"thumbnail_url,omitempty"`
 	PublishedAt  *time.Time        `json:"published_at,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
 	LikeCount    int64             `json:"like_count"`
 	IsLiked      bool              `json:"is_liked,omitempty"`
 	User         *PortfolioUserDTO `json:"user,omitempty"`

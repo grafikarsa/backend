@@ -69,6 +69,7 @@ func (h *PortfolioHandler) List(c *fiber.Ctx) error {
 			Slug:         p.Slug,
 			ThumbnailURL: p.ThumbnailURL,
 			PublishedAt:  p.PublishedAt,
+			CreatedAt:    p.CreatedAt,
 			LikeCount:    likeCount,
 		}
 
