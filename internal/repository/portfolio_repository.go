@@ -52,44 +52,57 @@ func (r *PortfolioRepository) ListPublished(search string, tagIDs []uuid.UUID, j
 	var portfolios []domain.Portfolio
 	var total int64
 
-	query := r.db.Model(&domain.Portfolio{}).
-		Where("portfolios.status = 'published' AND portfolios.deleted_at IS NULL")
+	// Base condition
+	baseCondition := "portfolios.status = 'published' AND portfolios.deleted_at IS NULL"
+
+	// Build count query
+	countQuery := r.db.Model(&domain.Portfolio{}).Where(baseCondition)
+
+	// Build fetch query
+	fetchQuery := r.db.Model(&domain.Portfolio{}).Where(baseCondition)
 
 	if search != "" {
-		query = query.Joins("JOIN users ON portfolios.user_id = users.id").
-			Where("portfolios.judul ILIKE ? OR users.nama ILIKE ?", "%"+search+"%", "%"+search+"%")
+		searchCondition := "portfolios.judul ILIKE ? OR portfolios.user_id IN (SELECT id FROM users WHERE nama ILIKE ?)"
+		countQuery = countQuery.Where(searchCondition, "%"+search+"%", "%"+search+"%")
+		fetchQuery = fetchQuery.Where(searchCondition, "%"+search+"%", "%"+search+"%")
 	}
 
 	if len(tagIDs) > 0 {
-		query = query.Joins("JOIN portfolio_tags ON portfolios.id = portfolio_tags.portfolio_id").
-			Where("portfolio_tags.tag_id IN ?", tagIDs).
-			Group("portfolios.id")
+		tagCondition := "portfolios.id IN (SELECT portfolio_id FROM portfolio_tags WHERE tag_id IN ?)"
+		countQuery = countQuery.Where(tagCondition, tagIDs)
+		fetchQuery = fetchQuery.Where(tagCondition, tagIDs)
 	}
 
 	if userID != nil {
-		query = query.Where("portfolios.user_id = ?", *userID)
+		countQuery = countQuery.Where("portfolios.user_id = ?", *userID)
+		fetchQuery = fetchQuery.Where("portfolios.user_id = ?", *userID)
 	}
 
 	if kelasID != nil {
-		query = query.Joins("JOIN users u ON portfolios.user_id = u.id").
-			Where("u.kelas_id = ?", *kelasID)
+		kelasCondition := "portfolios.user_id IN (SELECT id FROM users WHERE kelas_id = ?)"
+		countQuery = countQuery.Where(kelasCondition, *kelasID)
+		fetchQuery = fetchQuery.Where(kelasCondition, *kelasID)
 	} else if jurusanID != nil {
-		query = query.Joins("JOIN users u ON portfolios.user_id = u.id").
-			Joins("JOIN kelas k ON u.kelas_id = k.id").
-			Where("k.jurusan_id = ?", *jurusanID)
+		jurusanCondition := "portfolios.user_id IN (SELECT id FROM users WHERE kelas_id IN (SELECT id FROM kelas WHERE jurusan_id = ?))"
+		countQuery = countQuery.Where(jurusanCondition, *jurusanID)
+		fetchQuery = fetchQuery.Where(jurusanCondition, *jurusanID)
 	}
 
-	query.Count(&total)
+	// Count total
+	countQuery.Count(&total)
 
-	orderBy := "published_at DESC"
-	if sort == "-like_count" {
-		orderBy = "like_count DESC"
-	} else if sort == "judul" {
-		orderBy = "judul ASC"
+	// Determine order
+	orderBy := "portfolios.published_at DESC"
+	switch sort {
+	case "-like_count":
+		orderBy = "portfolios.like_count DESC"
+	case "judul":
+		orderBy = "portfolios.judul ASC"
 	}
 
+	// Fetch with pagination
 	offset := (page - 1) * limit
-	err := query.Preload("User.Kelas").Preload("Tags").
+	err := fetchQuery.Preload("User.Kelas").Preload("Tags").
 		Offset(offset).Limit(limit).
 		Order(orderBy).
 		Find(&portfolios).Error
