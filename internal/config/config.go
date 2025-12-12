@@ -34,12 +34,13 @@ type DatabaseConfig struct {
 }
 
 type MinIOConfig struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	Bucket    string
-	UseSSL    bool
-	PublicURL string
+	Endpoint    string
+	PresignHost string // Host to use in presigned URLs (for browser access)
+	AccessKey   string
+	SecretKey   string
+	Bucket      string
+	UseSSL      bool
+	PublicURL   string
 }
 
 type JWTConfig struct {
@@ -75,12 +76,13 @@ func Load() (*Config, error) {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		MinIO: MinIOConfig{
-			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
-			AccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-			SecretKey: getEnv("MINIO_SECRET_KEY", ""),
-			Bucket:    getEnv("MINIO_BUCKET", "grafikarsa"),
-			UseSSL:    getEnvBool("MINIO_USE_SSL", false),
-			PublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/grafikarsa"),
+			Endpoint:    getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			PresignHost: getEnv("MINIO_PRESIGN_HOST", "localhost:9000"),
+			AccessKey:   getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+			SecretKey:   getEnv("MINIO_SECRET_KEY", ""),
+			Bucket:      getEnv("MINIO_BUCKET", "grafikarsa"),
+			UseSSL:      getEnvBool("MINIO_USE_SSL", false),
+			PublicURL:   getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/grafikarsa"),
 		},
 		JWT: JWTConfig{
 			AccessSecret:  getEnv("JWT_ACCESS_SECRET", ""),

@@ -16,6 +16,7 @@ services:
       - DB_NAME=grafikarsa
       - DB_SSLMODE=disable
       - MINIO_ENDPOINT=minio:9000
+      - MINIO_PRESIGN_HOST=localhost:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=grafikarsa
@@ -87,6 +88,22 @@ services:
       /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
       /usr/bin/mc mb myminio/grafikarsa --ignore-existing;
       /usr/bin/mc anonymous set public myminio/grafikarsa;
+      cat > /tmp/cors.json << 'EOF'
+      {
+        \"cors\": {
+          \"CORSRules\": [
+            {
+              \"AllowedOrigins\": [\"http://localhost:3000\", \"http://127.0.0.1:3000\"],
+              \"AllowedMethods\": [\"GET\", \"PUT\", \"POST\", \"DELETE\", \"HEAD\"],
+              \"AllowedHeaders\": [\"*\"],
+              \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"],
+              \"MaxAgeSeconds\": 3600
+            }
+          ]
+        }
+      }
+      EOF
+      /usr/bin/mc cors set myminio/grafikarsa /tmp/cors.json;
       exit 0;
       "
     networks:

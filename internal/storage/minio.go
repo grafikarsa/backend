@@ -13,9 +13,10 @@ import (
 )
 
 type MinIOClient struct {
-	client    *minio.Client
-	bucket    string
-	publicURL string
+	client      *minio.Client
+	bucket      string
+	publicURL   string
+	presignHost string
 }
 
 func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
@@ -43,9 +44,10 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 	}
 
 	return &MinIOClient{
-		client:    client,
-		bucket:    minioCfg.Bucket,
-		publicURL: minioCfg.PublicURL,
+		client:      client,
+		bucket:      minioCfg.Bucket,
+		publicURL:   minioCfg.PublicURL,
+		presignHost: minioCfg.PresignHost,
 	}, nil
 }
 
@@ -59,7 +61,15 @@ func (m *MinIOClient) GetPresignedPutURL(objectKey, contentType string, expiry t
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}
-	return presignedURL.String(), nil
+
+	// Replace internal hostname with presign host for browser access
+	urlStr := presignedURL.String()
+	if m.presignHost != "" && presignedURL.Host != m.presignHost {
+		presignedURL.Host = m.presignHost
+		urlStr = presignedURL.String()
+	}
+
+	return urlStr, nil
 }
 
 func (m *MinIOClient) GetPresignedGetURL(objectKey string, expiry time.Duration) (string, error) {
