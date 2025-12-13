@@ -198,6 +198,8 @@ func main() {
 
 	// Admin - Users
 	adminRoutes.Get("/users", adminHandler.ListUsers)
+	adminRoutes.Get("/users/check-username", adminHandler.CheckUsername)
+	adminRoutes.Get("/users/check-email", adminHandler.CheckEmail)
 	adminRoutes.Post("/users", adminHandler.CreateUser)
 	adminRoutes.Get("/users/:id", adminHandler.GetUser)
 	adminRoutes.Patch("/users/:id", adminHandler.UpdateUser)

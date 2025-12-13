@@ -13,20 +13,39 @@ import (
 )
 
 type MinIOClient struct {
-	client      *minio.Client
-	bucket      string
-	publicURL   string
-	presignHost string
+	client        *minio.Client
+	presignClient *minio.Client // Separate client for presigning with browser-accessible endpoint
+	bucket        string
+	publicURL     string
 }
 
 func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 	minioCfg := cfg.MinIO
+
+	// Main client for internal operations (uses Docker internal hostname)
 	client, err := minio.New(minioCfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(minioCfg.AccessKey, minioCfg.SecretKey, ""),
 		Secure: minioCfg.UseSSL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
+	}
+
+	// Presign client for generating browser-accessible URLs
+	// Uses public-facing endpoint so presigned URLs work from browsers
+	// Note: minio.New() doesn't actually connect - it just stores config
+	// PresignedPutObject generates signature locally without server connection
+	presignEndpoint := minioCfg.PresignHost
+	if presignEndpoint == "" {
+		presignEndpoint = minioCfg.Endpoint
+	}
+
+	presignClient, err := minio.New(presignEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(minioCfg.AccessKey, minioCfg.SecretKey, ""),
+		Secure: minioCfg.UseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MinIO presign client: %w", err)
 	}
 
 	ctx := context.Background()
@@ -44,15 +63,16 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 	}
 
 	return &MinIOClient{
-		client:      client,
-		bucket:      minioCfg.Bucket,
-		publicURL:   minioCfg.PublicURL,
-		presignHost: minioCfg.PresignHost,
+		client:        client,
+		presignClient: presignClient,
+		bucket:        minioCfg.Bucket,
+		publicURL:     minioCfg.PublicURL,
 	}, nil
 }
 
 func (m *MinIOClient) GetPresignedPutURL(objectKey, contentType string, expiry time.Duration) (string, error) {
-	presignedURL, err := m.client.PresignedPutObject(
+	// Use presignClient which has browser-accessible endpoint
+	presignedURL, err := m.presignClient.PresignedPutObject(
 		context.Background(),
 		m.bucket,
 		objectKey,
@@ -62,14 +82,7 @@ func (m *MinIOClient) GetPresignedPutURL(objectKey, contentType string, expiry t
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}
 
-	// Replace internal hostname with presign host for browser access
-	urlStr := presignedURL.String()
-	if m.presignHost != "" && presignedURL.Host != m.presignHost {
-		presignedURL.Host = m.presignHost
-		urlStr = presignedURL.String()
-	}
-
-	return urlStr, nil
+	return presignedURL.String(), nil
 }
 
 func (m *MinIOClient) GetPresignedGetURL(objectKey string, expiry time.Duration) (string, error) {

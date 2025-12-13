@@ -680,14 +680,41 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
 	}
 
+	// Check username uniqueness if changed
+	if req.Username != nil && *req.Username != user.Username {
+		exists, _ := h.userRepo.UsernameExists(*req.Username, &id)
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("USERNAME_TAKEN", "Username sudah digunakan"))
+		}
+		user.Username = *req.Username
+	}
+
+	// Check email uniqueness if changed
+	if req.Email != nil && *req.Email != user.Email {
+		exists, _ := h.userRepo.EmailExists(*req.Email, &id)
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("DUPLICATE_EMAIL", "Email sudah digunakan"))
+		}
+		user.Email = *req.Email
+	}
+
 	if req.Nama != nil {
 		user.Nama = *req.Nama
 	}
 	if req.Role != nil {
 		user.Role = domain.UserRole(*req.Role)
 	}
+	if req.NISN != nil {
+		user.NISN = req.NISN
+	}
+	if req.NIS != nil {
+		user.NIS = req.NIS
+	}
 	if req.KelasID != nil {
 		user.KelasID = req.KelasID
+	}
+	if req.TahunMasuk != nil {
+		user.TahunMasuk = req.TahunMasuk
 	}
 	if req.TahunLulus != nil {
 		user.TahunLulus = req.TahunLulus
@@ -695,13 +722,21 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive
 	}
+	if req.AvatarURL != nil {
+		user.AvatarURL = req.AvatarURL
+	}
+	if req.BannerURL != nil {
+		user.BannerURL = req.BannerURL
+	}
 
 	if err := h.userRepo.Update(user); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui user"))
 	}
 
 	return c.JSON(dto.SuccessResponse(map[string]interface{}{
-		"id": user.ID, "nama": user.Nama, "role": user.Role, "tahun_lulus": user.TahunLulus, "updated_at": user.UpdatedAt,
+		"id": user.ID, "username": user.Username, "email": user.Email, "nama": user.Nama, "role": user.Role,
+		"nisn": user.NISN, "nis": user.NIS, "tahun_masuk": user.TahunMasuk, "tahun_lulus": user.TahunLulus,
+		"avatar_url": user.AvatarURL, "banner_url": user.BannerURL, "updated_at": user.UpdatedAt,
 	}, "User berhasil diperbarui"))
 }
 
@@ -748,6 +783,54 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(dto.SuccessResponse(nil, "User berhasil dihapus"))
+}
+
+func (h *AdminHandler) CheckUsername(c *fiber.Ctx) error {
+	username := c.Query("username")
+	excludeID := c.Query("exclude_id")
+
+	if username == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Username wajib diisi"))
+	}
+
+	var excludeUUID *uuid.UUID
+	if excludeID != "" {
+		parsed, err := uuid.Parse(excludeID)
+		if err == nil {
+			excludeUUID = &parsed
+		}
+	}
+
+	exists, _ := h.userRepo.UsernameExists(username, excludeUUID)
+
+	return c.JSON(dto.SuccessResponse(map[string]interface{}{
+		"username":  username,
+		"available": !exists,
+	}, ""))
+}
+
+func (h *AdminHandler) CheckEmail(c *fiber.Ctx) error {
+	email := c.Query("email")
+	excludeID := c.Query("exclude_id")
+
+	if email == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Email wajib diisi"))
+	}
+
+	var excludeUUID *uuid.UUID
+	if excludeID != "" {
+		parsed, err := uuid.Parse(excludeID)
+		if err == nil {
+			excludeUUID = &parsed
+		}
+	}
+
+	exists, _ := h.userRepo.EmailExists(email, excludeUUID)
+
+	return c.JSON(dto.SuccessResponse(map[string]interface{}{
+		"email":     email,
+		"available": !exists,
+	}, ""))
 }
 
 func (h *AdminHandler) DeactivateUser(c *fiber.Ctx) error {
@@ -1058,6 +1141,43 @@ func (h *AdminHandler) GetDashboardStats(c *fiber.Ctx) error {
 	jurusanCount, _ := h.adminRepo.GetJurusanCount()
 	kelasTotal, kelasActive, _ := h.adminRepo.GetKelasStats()
 
+	// Get recent users (5)
+	recentUsers, _ := h.adminRepo.GetRecentUsers(5)
+	var recentUsersDTO []dto.RecentUserDTO
+	for _, u := range recentUsers {
+		uDTO := dto.RecentUserDTO{
+			ID:        u.ID,
+			Username:  u.Username,
+			Nama:      u.Nama,
+			AvatarURL: u.AvatarURL,
+			Role:      string(u.Role),
+			CreatedAt: u.CreatedAt,
+		}
+		if u.Kelas != nil {
+			uDTO.KelasNama = &u.Kelas.Nama
+		}
+		recentUsersDTO = append(recentUsersDTO, uDTO)
+	}
+
+	// Get recent pending portfolios (5)
+	recentPending, _ := h.adminRepo.GetRecentPendingPortfolios(5)
+	var recentPendingDTO []dto.RecentPendingPortfolioDTO
+	for _, p := range recentPending {
+		pDTO := dto.RecentPendingPortfolioDTO{
+			ID:           p.ID,
+			Judul:        p.Judul,
+			Slug:         p.Slug,
+			ThumbnailURL: p.ThumbnailURL,
+			CreatedAt:    p.CreatedAt,
+		}
+		if p.User != nil {
+			pDTO.UserNama = p.User.Nama
+			pDTO.UserUsername = p.User.Username
+			pDTO.UserAvatarURL = p.User.AvatarURL
+		}
+		recentPendingDTO = append(recentPendingDTO, pDTO)
+	}
+
 	return c.JSON(dto.SuccessResponse(dto.DashboardStatsDTO{
 		Users: dto.UserStatsDTO{
 			Total: userTotal, Students: students, Alumni: alumni, Admins: admins, NewThisMonth: userNewMonth,
@@ -1066,7 +1186,9 @@ func (h *AdminHandler) GetDashboardStats(c *fiber.Ctx) error {
 			Total: portfolioTotal, Published: published, PendingReview: pending, Draft: draft,
 			Rejected: rejected, Archived: archived, NewThisMonth: portfolioNewMonth,
 		},
-		Jurusan: dto.CountDTO{Total: jurusanCount},
-		Kelas:   dto.KelasStatsDTO{Total: kelasTotal, ActiveTahunAjaran: kelasActive},
+		Jurusan:                 dto.CountDTO{Total: jurusanCount},
+		Kelas:                   dto.KelasStatsDTO{Total: kelasTotal, ActiveTahunAjaran: kelasActive},
+		RecentUsers:             recentUsersDTO,
+		RecentPendingPortfolios: recentPendingDTO,
 	}, ""))
 }

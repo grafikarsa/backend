@@ -349,3 +349,25 @@ func (r *AdminRepository) GetKelasStats() (total, activeTahunAjaran int64, err e
 		Count(&activeTahunAjaran)
 	return
 }
+
+// GetRecentUsers returns the most recent users
+func (r *AdminRepository) GetRecentUsers(limit int) ([]domain.User, error) {
+	var users []domain.User
+	err := r.db.Preload("Kelas.Jurusan").
+		Where("deleted_at IS NULL").
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+// GetRecentPendingPortfolios returns the most recent portfolios pending review
+func (r *AdminRepository) GetRecentPendingPortfolios(limit int) ([]domain.Portfolio, error) {
+	var portfolios []domain.Portfolio
+	err := r.db.Preload("User.Kelas.Jurusan").
+		Where("deleted_at IS NULL AND status = 'pending_review'").
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&portfolios).Error
+	return portfolios, err
+}

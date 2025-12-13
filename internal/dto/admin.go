@@ -145,10 +145,17 @@ type CreateUserRequest struct {
 
 type UpdateUserRequest struct {
 	Nama       *string    `json:"nama,omitempty"`
+	Username   *string    `json:"username,omitempty"`
+	Email      *string    `json:"email,omitempty"`
 	Role       *string    `json:"role,omitempty"`
+	NISN       *string    `json:"nisn,omitempty"`
+	NIS        *string    `json:"nis,omitempty"`
 	KelasID    *uuid.UUID `json:"kelas_id,omitempty"`
+	TahunMasuk *int       `json:"tahun_masuk,omitempty"`
 	TahunLulus *int       `json:"tahun_lulus,omitempty"`
 	IsActive   *bool      `json:"is_active,omitempty"`
+	AvatarURL  *string    `json:"avatar_url,omitempty"`
+	BannerURL  *string    `json:"banner_url,omitempty"`
 }
 
 type ResetPasswordRequest struct {
@@ -183,10 +190,12 @@ type AdminUpdatePortfolioRequest struct {
 
 // Dashboard Stats
 type DashboardStatsDTO struct {
-	Users      UserStatsDTO      `json:"users"`
-	Portfolios PortfolioStatsDTO `json:"portfolios"`
-	Jurusan    CountDTO          `json:"jurusan"`
-	Kelas      KelasStatsDTO     `json:"kelas"`
+	Users                   UserStatsDTO                `json:"users"`
+	Portfolios              PortfolioStatsDTO           `json:"portfolios"`
+	Jurusan                 CountDTO                    `json:"jurusan"`
+	Kelas                   KelasStatsDTO               `json:"kelas"`
+	RecentUsers             []RecentUserDTO             `json:"recent_users"`
+	RecentPendingPortfolios []RecentPendingPortfolioDTO `json:"recent_pending_portfolios"`
 }
 
 type UserStatsDTO struct {
@@ -214,4 +223,25 @@ type CountDTO struct {
 type KelasStatsDTO struct {
 	Total             int64 `json:"total"`
 	ActiveTahunAjaran int64 `json:"active_tahun_ajaran"`
+}
+
+type RecentUserDTO struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Nama      string    `json:"nama"`
+	AvatarURL *string   `json:"avatar_url,omitempty"`
+	Role      string    `json:"role"`
+	KelasNama *string   `json:"kelas_nama,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type RecentPendingPortfolioDTO struct {
+	ID            uuid.UUID `json:"id"`
+	Judul         string    `json:"judul"`
+	Slug          string    `json:"slug"`
+	ThumbnailURL  *string   `json:"thumbnail_url,omitempty"`
+	UserNama      string    `json:"user_nama"`
+	UserUsername  string    `json:"user_username"`
+	UserAvatarURL *string   `json:"user_avatar_url,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }

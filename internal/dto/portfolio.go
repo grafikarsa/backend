@@ -67,6 +67,7 @@ type MyPortfolioDTO struct {
 // Create/Update Portfolio
 type CreatePortfolioRequest struct {
 	Judul  string      `json:"judul" validate:"required"`
+	UserID *uuid.UUID  `json:"user_id,omitempty"` // Admin can assign to another user
 	TagIDs []uuid.UUID `json:"tag_ids,omitempty"`
 }
 

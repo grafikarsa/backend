@@ -237,8 +237,8 @@ func (h *PortfolioHandler) GetMyPortfolios(c *fiber.Ctx) error {
 }
 
 func (h *PortfolioHandler) Create(c *fiber.Ctx) error {
-	userID := middleware.GetUserID(c)
-	if userID == nil {
+	currentUserID := middleware.GetUserID(c)
+	if currentUserID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse(
 			"UNAUTHORIZED", "User tidak terautentikasi",
 		))
@@ -258,10 +258,21 @@ func (h *PortfolioHandler) Create(c *fiber.Ctx) error {
 		))
 	}
 
+	// Determine owner and status based on who's creating
+	isAdmin := middleware.GetUserRole(c) == "admin"
+	ownerID := *currentUserID
+	status := domain.StatusDraft
+
+	// Admin can assign portfolio to another user and it's auto-published
+	if isAdmin && req.UserID != nil {
+		ownerID = *req.UserID
+		status = domain.StatusPublished
+	}
+
 	portfolio := &domain.Portfolio{
-		UserID: *userID,
+		UserID: ownerID,
 		Judul:  req.Judul,
-		Status: domain.StatusDraft,
+		Status: status,
 	}
 
 	if err := h.portfolioRepo.Create(portfolio); err != nil {
@@ -276,7 +287,7 @@ func (h *PortfolioHandler) Create(c *fiber.Ctx) error {
 
 	portfolio, _ = h.portfolioRepo.FindByID(portfolio.ID)
 
-	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(h.toPortfolioDetailDTO(portfolio, userID), "Portfolio berhasil dibuat"))
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(h.toPortfolioDetailDTO(portfolio, currentUserID), "Portfolio berhasil dibuat"))
 }
 
 func (h *PortfolioHandler) Update(c *fiber.Ctx) error {
