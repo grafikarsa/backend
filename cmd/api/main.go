@@ -61,6 +61,8 @@ func main() {
 	publicHandler := handler.NewPublicHandler(adminRepo)
 	feedHandler := handler.NewFeedHandler(portfolioRepo, followRepo)
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
+	feedbackRepo := repository.NewFeedbackRepository(db)
+	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -219,6 +221,16 @@ func main() {
 
 	// Admin - Dashboard
 	adminRoutes.Get("/dashboard/stats", adminHandler.GetDashboardStats)
+
+	// Admin - Feedback
+	adminRoutes.Get("/feedback", feedbackHandler.AdminListFeedback)
+	adminRoutes.Get("/feedback/stats", feedbackHandler.AdminGetFeedbackStats)
+	adminRoutes.Get("/feedback/:id", feedbackHandler.AdminGetFeedback)
+	adminRoutes.Patch("/feedback/:id", feedbackHandler.AdminUpdateFeedback)
+	adminRoutes.Delete("/feedback/:id", feedbackHandler.AdminDeleteFeedback)
+
+	// Public Feedback route (auth optional)
+	api.Post("/feedback", authMiddleware.Optional(), feedbackHandler.CreateFeedback)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

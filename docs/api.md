@@ -61,6 +61,7 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 17. [Admin - Moderasi](#17-admin---moderasi)
 18. [Admin - Dashboard](#18-admin---dashboard)
 19. [Public - Jurusan & Kelas](#19-public---jurusan--kelas)
+20. [Feedback](#20-feedback)
 
 ---
 
@@ -3370,6 +3371,176 @@ Daftar kelas aktif (publik).
       }
     }
   ]
+}
+```
+
+---
+
+## 20. Feedback
+
+### POST /feedback
+
+Kirim feedback untuk platform (auth optional).
+
+**Authentication:** Optional (Bearer Token)
+
+**Request Body:**
+```json
+{
+  "kategori": "saran",
+  "pesan": "Saran untuk menambahkan fitur dark mode"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| kategori | string | Yes | `bug`, `saran`, atau `lainnya` |
+| pesan | string | Yes | Isi feedback (min 10, max 2000 karakter) |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "message": "Feedback berhasil dikirim. Terima kasih!",
+  "data": {
+    "id": "123"
+  }
+}
+```
+
+---
+
+### GET /admin/feedback
+
+Daftar semua feedback (admin only).
+
+**Authentication:** Required (Admin)
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| page | integer | Halaman (default: 1) |
+| limit | integer | Jumlah per halaman (default: 20) |
+| search | string | Cari di pesan/nama/email |
+| kategori | string | Filter: `bug`, `saran`, `lainnya` |
+| status | string | Filter: `pending`, `read`, `resolved` |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "1",
+      "user_id": "123",
+      "user": {
+        "id": "123",
+        "nama": "John Doe",
+        "username": "johndoe",
+        "avatar_url": "https://..."
+      },
+      "kategori": "saran",
+      "pesan": "Saran untuk menambahkan fitur dark mode",
+      "status": "pending",
+      "admin_notes": null,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 50,
+    "total_pages": 3
+  }
+}
+```
+
+---
+
+### GET /admin/feedback/stats
+
+Statistik feedback (admin only).
+
+**Authentication:** Required (Admin)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "pending": 10,
+    "read": 25,
+    "resolved": 15,
+    "total": 50
+  }
+}
+```
+
+---
+
+### GET /admin/feedback/:id
+
+Detail feedback (admin only).
+
+**Authentication:** Required (Admin)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "1",
+    "user_id": "123",
+    "user": { ... },
+    "kategori": "bug",
+    "pesan": "Ada bug di halaman login",
+    "status": "read",
+    "admin_notes": "Sudah diperbaiki",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+---
+
+### PATCH /admin/feedback/:id
+
+Update status/notes feedback (admin only).
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "status": "resolved",
+  "admin_notes": "Bug sudah diperbaiki di versi 1.2.0"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Feedback berhasil diperbarui",
+  "data": { ... }
+}
+```
+
+---
+
+### DELETE /admin/feedback/:id
+
+Hapus feedback (admin only).
+
+**Authentication:** Required (Admin)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Feedback berhasil dihapus"
 }
 ```
 
