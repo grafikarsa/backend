@@ -360,3 +360,33 @@ type PortfolioAssessmentScore struct {
 }
 
 func (PortfolioAssessmentScore) TableName() string { return "portfolio_assessment_scores" }
+
+// ============================================================================
+// NOTIFICATION MODELS
+// ============================================================================
+
+// NotificationType enum
+type NotificationType string
+
+const (
+	NotifNewFollower       NotificationType = "new_follower"
+	NotifPortfolioLiked    NotificationType = "portfolio_liked"
+	NotifPortfolioApproved NotificationType = "portfolio_approved"
+	NotifPortfolioRejected NotificationType = "portfolio_rejected"
+)
+
+// Notification
+type Notification struct {
+	ID        uuid.UUID        `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID    uuid.UUID        `gorm:"type:uuid;not null" json:"user_id"`
+	Type      NotificationType `gorm:"type:notification_type;not null" json:"type"`
+	Title     string           `gorm:"type:varchar(255);not null" json:"title"`
+	Message   *string          `gorm:"type:text" json:"message,omitempty"`
+	Data      JSONB            `gorm:"type:jsonb;default:'{}'" json:"data,omitempty"`
+	IsRead    bool             `gorm:"default:false" json:"is_read"`
+	ReadAt    *time.Time       `json:"read_at,omitempty"`
+	CreatedAt time.Time        `gorm:"not null;default:now()" json:"created_at"`
+	User      *User            `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (Notification) TableName() string { return "notifications" }

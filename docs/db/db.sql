@@ -811,3 +811,33 @@ COMMENT ON FUNCTION cleanup_expired_tokens() IS 'Hapus refresh tokens dan blackl
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO grafikarsa_app;
 -- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO grafikarsa_app;
 -- GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO grafikarsa_app;
+
+-- ============================================================================
+-- NOTIFICATIONS
+-- ============================================================================
+
+-- Notification type enum
+CREATE TYPE notification_type AS ENUM ('new_follower', 'portfolio_liked', 'portfolio_approved', 'portfolio_rejected');
+
+-- Notifications table
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type notification_type NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    data JSONB DEFAULT '{}',
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for fast queries
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX idx_notifications_type ON notifications(type);
+
+COMMENT ON TABLE notifications IS 'Notifikasi untuk user';
+COMMENT ON COLUMN notifications.type IS 'Tipe notifikasi: new_follower, portfolio_liked, portfolio_approved, portfolio_rejected';
+COMMENT ON COLUMN notifications.data IS 'Data tambahan dalam format JSON (actor info, portfolio info, dll)';

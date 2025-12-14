@@ -17,6 +17,7 @@ import (
 	"github.com/grafikarsa/backend/internal/handler"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
+	"github.com/grafikarsa/backend/internal/service"
 	"github.com/grafikarsa/backend/internal/storage"
 )
 
@@ -48,23 +49,28 @@ func main() {
 	portfolioRepo := repository.NewPortfolioRepository(db)
 	followRepo := repository.NewFollowRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
+	feedbackRepo := repository.NewFeedbackRepository(db)
+	assessmentRepo := repository.NewAssessmentRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
+
+	// Initialize services
+	notificationService := service.NewNotificationService(notificationRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userRepo, authRepo, jwtService)
-	userHandler := handler.NewUserHandler(userRepo, followRepo)
+	userHandler := handler.NewUserHandler(userRepo, followRepo, notificationService)
 	profileHandler := handler.NewProfileHandler(userRepo)
-	portfolioHandler := handler.NewPortfolioHandler(portfolioRepo, userRepo)
+	portfolioHandler := handler.NewPortfolioHandler(portfolioRepo, userRepo, notificationService)
 	contentBlockHandler := handler.NewContentBlockHandler(portfolioRepo)
-	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, portfolioRepo)
+	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, portfolioRepo, notificationService)
 	uploadHandler := handler.NewUploadHandler(minioClient, userRepo, portfolioRepo)
 	tagHandler := handler.NewTagHandler(adminRepo)
 	publicHandler := handler.NewPublicHandler(adminRepo)
 	feedHandler := handler.NewFeedHandler(portfolioRepo, followRepo)
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
-	feedbackRepo := repository.NewFeedbackRepository(db)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo)
-	assessmentRepo := repository.NewAssessmentRepository(db)
 	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
+	notificationHandler := handler.NewNotificationHandler(notificationRepo)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -159,6 +165,14 @@ func main() {
 
 	// Feed route
 	api.Get("/feed", authMiddleware.Required(), feedHandler.GetFeed)
+
+	// Notification routes
+	notifRoutes := api.Group("/notifications", authMiddleware.Required())
+	notifRoutes.Get("/", notificationHandler.List)
+	notifRoutes.Get("/count", notificationHandler.Count)
+	notifRoutes.Patch("/:id/read", notificationHandler.MarkAsRead)
+	notifRoutes.Post("/read-all", notificationHandler.MarkAllAsRead)
+	notifRoutes.Delete("/:id", notificationHandler.Delete)
 
 	// Search routes
 	searchRoutes := api.Group("/search")

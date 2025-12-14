@@ -10,6 +10,7 @@ import (
 	"github.com/grafikarsa/backend/internal/dto"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
+	"github.com/grafikarsa/backend/internal/service"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,13 +18,15 @@ type AdminHandler struct {
 	adminRepo     *repository.AdminRepository
 	userRepo      *repository.UserRepository
 	portfolioRepo *repository.PortfolioRepository
+	notifService  *service.NotificationService
 }
 
-func NewAdminHandler(adminRepo *repository.AdminRepository, userRepo *repository.UserRepository, portfolioRepo *repository.PortfolioRepository) *AdminHandler {
+func NewAdminHandler(adminRepo *repository.AdminRepository, userRepo *repository.UserRepository, portfolioRepo *repository.PortfolioRepository, notifService *service.NotificationService) *AdminHandler {
 	return &AdminHandler{
 		adminRepo:     adminRepo,
 		userRepo:      userRepo,
 		portfolioRepo: portfolioRepo,
+		notifService:  notifService,
 	}
 }
 
@@ -1036,6 +1039,11 @@ func (h *AdminHandler) ApprovePortfolio(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menyetujui portfolio"))
 	}
 
+	// Send notification to portfolio owner
+	if h.notifService != nil {
+		_ = h.notifService.NotifyPortfolioApproved(portfolio)
+	}
+
 	return c.JSON(dto.SuccessResponse(map[string]interface{}{
 		"id": portfolio.ID, "status": portfolio.Status, "admin_review_note": portfolio.AdminReviewNote,
 		"reviewed_at": portfolio.ReviewedAt, "published_at": portfolio.PublishedAt,
@@ -1074,6 +1082,11 @@ func (h *AdminHandler) RejectPortfolio(c *fiber.Ctx) error {
 
 	if err := h.portfolioRepo.Update(portfolio); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menolak portfolio"))
+	}
+
+	// Send notification to portfolio owner
+	if h.notifService != nil {
+		_ = h.notifService.NotifyPortfolioRejected(portfolio, req.Note)
 	}
 
 	return c.JSON(dto.SuccessResponse(map[string]interface{}{

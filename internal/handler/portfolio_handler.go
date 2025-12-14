@@ -10,17 +10,20 @@ import (
 	"github.com/grafikarsa/backend/internal/dto"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
+	"github.com/grafikarsa/backend/internal/service"
 )
 
 type PortfolioHandler struct {
 	portfolioRepo *repository.PortfolioRepository
 	userRepo      *repository.UserRepository
+	notifService  *service.NotificationService
 }
 
-func NewPortfolioHandler(portfolioRepo *repository.PortfolioRepository, userRepo *repository.UserRepository) *PortfolioHandler {
+func NewPortfolioHandler(portfolioRepo *repository.PortfolioRepository, userRepo *repository.UserRepository, notifService *service.NotificationService) *PortfolioHandler {
 	return &PortfolioHandler{
 		portfolioRepo: portfolioRepo,
 		userRepo:      userRepo,
+		notifService:  notifService,
 	}
 }
 
@@ -535,6 +538,15 @@ func (h *PortfolioHandler) Like(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(
 			"INTERNAL_ERROR", "Gagal like portfolio",
 		))
+	}
+
+	// Send notification to portfolio owner
+	if h.notifService != nil {
+		liker, _ := h.userRepo.FindByID(*userID)
+		portfolio, _ := h.portfolioRepo.FindByID(id)
+		if liker != nil && portfolio != nil {
+			_ = h.notifService.NotifyPortfolioLiked(liker, portfolio)
+		}
 	}
 
 	likeCount, _ := h.portfolioRepo.GetLikeCount(id)

@@ -8,17 +8,20 @@ import (
 	"github.com/grafikarsa/backend/internal/dto"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
+	"github.com/grafikarsa/backend/internal/service"
 )
 
 type UserHandler struct {
-	userRepo   *repository.UserRepository
-	followRepo *repository.FollowRepository
+	userRepo     *repository.UserRepository
+	followRepo   *repository.FollowRepository
+	notifService *service.NotificationService
 }
 
-func NewUserHandler(userRepo *repository.UserRepository, followRepo *repository.FollowRepository) *UserHandler {
+func NewUserHandler(userRepo *repository.UserRepository, followRepo *repository.FollowRepository, notifService *service.NotificationService) *UserHandler {
 	return &UserHandler{
-		userRepo:   userRepo,
-		followRepo: followRepo,
+		userRepo:     userRepo,
+		followRepo:   followRepo,
+		notifService: notifService,
 	}
 }
 
@@ -309,6 +312,14 @@ func (h *UserHandler) Follow(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(
 			"INTERNAL_ERROR", "Gagal follow user",
 		))
+	}
+
+	// Send notification to followed user
+	if h.notifService != nil {
+		follower, _ := h.userRepo.FindByID(*currentUserID)
+		if follower != nil {
+			_ = h.notifService.NotifyNewFollower(follower, targetUser.ID)
+		}
 	}
 
 	followerCount, _ := h.followRepo.GetFollowerCount(targetUser.ID)

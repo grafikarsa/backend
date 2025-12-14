@@ -64,6 +64,8 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 20. [Feedback](#20-feedback)
 21. [Admin - Assessment Metrics](#21-admin---assessment-metrics)
 22. [Admin - Portfolio Assessments](#22-admin---portfolio-assessments)
+23. [Notifications](#23-notifications)
+22. [Admin - Portfolio Assessments](#22-admin---portfolio-assessments)
 
 ---
 
@@ -4070,6 +4072,138 @@ Hapus penilaian portfolio.
     "code": "NOT_FOUND",
     "message": "Penilaian tidak ditemukan"
   }
+}
+```
+
+---
+
+## 23. Notifications
+
+Endpoint untuk mengelola notifikasi user.
+
+### GET /notifications
+
+Daftar notifikasi user yang login.
+
+**Authentication:** Required
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| page | integer | Halaman (default: 1) |
+| limit | integer | Jumlah per halaman (default: 20, max: 50) |
+| unread_only | boolean | Hanya tampilkan yang belum dibaca (default: false) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "new_follower",
+      "title": "Pengikut Baru",
+      "message": "@jane_doe mulai mengikuti kamu",
+      "data": {
+        "follower_id": "uuid",
+        "follower_username": "jane_doe",
+        "follower_nama": "Jane Doe",
+        "follower_avatar": "https://..."
+      },
+      "is_read": false,
+      "read_at": null,
+      "created_at": "2025-12-14T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 50,
+    "total_pages": 3,
+    "unread_count": 5
+  }
+}
+```
+
+**Notification Types:**
+- `new_follower` - Ada user baru yang follow
+- `portfolio_liked` - Portfolio di-like
+- `portfolio_approved` - Portfolio disetujui admin
+- `portfolio_rejected` - Portfolio ditolak admin
+
+---
+
+### GET /notifications/count
+
+Jumlah notifikasi yang belum dibaca.
+
+**Authentication:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "unread_count": 5
+  }
+}
+```
+
+---
+
+### PATCH /notifications/:id/read
+
+Tandai satu notifikasi sebagai sudah dibaca.
+
+**Authentication:** Required
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID notifikasi |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Notifikasi ditandai sudah dibaca"
+}
+```
+
+---
+
+### POST /notifications/read-all
+
+Tandai semua notifikasi sebagai sudah dibaca.
+
+**Authentication:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Semua notifikasi ditandai sudah dibaca"
+}
+```
+
+---
+
+### DELETE /notifications/:id
+
+Hapus satu notifikasi.
+
+**Authentication:** Required
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID notifikasi |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Notifikasi berhasil dihapus"
 }
 ```
 
