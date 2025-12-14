@@ -444,7 +444,7 @@ COMMENT ON TABLE feedback IS 'Feedback dari user (bug report, saran, dll)';
 COMMENT ON COLUMN feedback.user_id IS 'NULL jika feedback dari guest (tidak login)';
 COMMENT ON COLUMN feedback.admin_notes IS 'Catatan internal dari admin';
 
-CREATE TRIGGER trg_feedback_updated_at BEFORE UPDATE ON feedback FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+c-- NOTE: Trigger trg_feedback_updated_at dibuat di bagian TRIGGERS setelah function update_updated_at() didefinisikan
 
 -- ============================================================================
 -- ASSESSMENT (Penilaian Portfolio)
@@ -624,6 +624,7 @@ CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE 
 CREATE TRIGGER trg_user_social_links_updated_at BEFORE UPDATE ON user_social_links FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_content_blocks_updated_at BEFORE UPDATE ON content_blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_feedback_updated_at BEFORE UPDATE ON feedback FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_assessment_metrics_updated_at BEFORE UPDATE ON assessment_metrics FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolio_assessments_updated_at BEFORE UPDATE ON portfolio_assessments FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolio_assessment_scores_updated_at BEFORE UPDATE ON portfolio_assessment_scores FOR EACH ROW EXECUTE FUNCTION update_updated_at();
