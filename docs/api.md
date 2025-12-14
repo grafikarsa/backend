@@ -62,6 +62,8 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 18. [Admin - Dashboard](#18-admin---dashboard)
 19. [Public - Jurusan & Kelas](#19-public---jurusan--kelas)
 20. [Feedback](#20-feedback)
+21. [Admin - Assessment Metrics](#21-admin---assessment-metrics)
+22. [Admin - Portfolio Assessments](#22-admin---portfolio-assessments)
 
 ---
 
@@ -3546,6 +3548,533 @@ Hapus feedback (admin only).
 
 ---
 
+## 21. Admin - Assessment Metrics
+
+Endpoint untuk mengelola metrik penilaian portfolio.
+
+### GET /admin/assessment-metrics
+
+Daftar semua metrik penilaian.
+
+**Authentication:** Required (Admin)
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| active_only | boolean | Hanya tampilkan metrik aktif (default: false) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nama": "Kreativitas",
+      "deskripsi": "Tingkat kreativitas dan orisinalitas karya",
+      "urutan": 1,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "nama": "Teknis",
+      "deskripsi": "Kualitas teknis dan implementasi",
+      "urutan": 2,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### POST /admin/assessment-metrics
+
+Buat metrik penilaian baru.
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "nama": "Kreativitas",
+  "deskripsi": "Tingkat kreativitas dan orisinalitas karya"
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "message": "Metrik berhasil dibuat",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nama": "Kreativitas",
+    "deskripsi": "Tingkat kreativitas dan orisinalitas karya",
+    "urutan": 1,
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+`400 Bad Request` - Validasi gagal:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Nama metrik minimal 2 karakter"
+  }
+}
+```
+
+---
+
+### PATCH /admin/assessment-metrics/:id
+
+Update metrik penilaian.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID metrik |
+
+**Request Body:**
+```json
+{
+  "nama": "Kreativitas & Inovasi",
+  "deskripsi": "Tingkat kreativitas, orisinalitas, dan inovasi karya",
+  "is_active": true
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Metrik berhasil diupdate",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nama": "Kreativitas & Inovasi",
+    "deskripsi": "Tingkat kreativitas, orisinalitas, dan inovasi karya",
+    "urutan": 1,
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Metrik tidak ditemukan"
+  }
+}
+```
+
+---
+
+### DELETE /admin/assessment-metrics/:id
+
+Hapus metrik penilaian.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID metrik |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Metrik berhasil dihapus"
+}
+```
+
+**Error Responses:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Metrik tidak ditemukan"
+  }
+}
+```
+
+---
+
+### PUT /admin/assessment-metrics/reorder
+
+Ubah urutan metrik penilaian.
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "orders": [
+    { "id": "550e8400-e29b-41d4-a716-446655440001", "urutan": 1 },
+    { "id": "550e8400-e29b-41d4-a716-446655440000", "urutan": 2 },
+    { "id": "550e8400-e29b-41d4-a716-446655440002", "urutan": 3 }
+  ]
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Urutan metrik berhasil diubah"
+}
+```
+
+**Error Responses:**
+
+`400 Bad Request`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Orders tidak boleh kosong"
+  }
+}
+```
+
+---
+
+## 22. Admin - Portfolio Assessments
+
+Endpoint untuk mengelola penilaian portfolio.
+
+### GET /admin/assessments
+
+Daftar portfolio untuk penilaian.
+
+**Authentication:** Required (Admin)
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| filter | string | Filter: `all`, `pending`, `assessed` (default: all) |
+| search | string | Cari berdasarkan judul portfolio atau nama user |
+| page | integer | Halaman (default: 1) |
+| limit | integer | Jumlah per halaman (default: 20, max: 100) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "judul": "Website Portfolio Pribadi",
+      "slug": "website-portfolio-pribadi",
+      "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
+      "published_at": "2025-12-01T10:00:00Z",
+      "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "john_doe",
+        "nama": "John Doe",
+        "avatar_url": "https://cdn.grafikarsa.com/avatars/john.jpg"
+      },
+      "assessment": {
+        "id": "990e8400-e29b-41d4-a716-446655440000",
+        "total_score": 8.5,
+        "assessor": {
+          "id": "admin-uuid",
+          "username": "admin",
+          "nama": "Administrator",
+          "avatar_url": null
+        },
+        "assessed_at": "2025-12-05T14:00:00Z"
+      }
+    },
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440001",
+      "judul": "Desain Logo Keren",
+      "slug": "desain-logo-keren",
+      "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio2.jpg",
+      "published_at": "2025-12-02T08:00:00Z",
+      "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "username": "jane_doe",
+        "nama": "Jane Doe",
+        "avatar_url": "https://cdn.grafikarsa.com/avatars/jane.jpg"
+      },
+      "assessment": null
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 50,
+    "total_pages": 3
+  }
+}
+```
+
+---
+
+### GET /admin/assessments/:portfolio_id
+
+Detail penilaian portfolio.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| portfolio_id | UUID | ID portfolio |
+
+**Success Response (200) - Portfolio sudah dinilai:**
+```json
+{
+  "success": true,
+  "data": {
+    "portfolio": {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "judul": "Website Portfolio Pribadi",
+      "slug": "website-portfolio-pribadi",
+      "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg"
+    },
+    "assessment": {
+      "id": "990e8400-e29b-41d4-a716-446655440000",
+      "portfolio_id": "880e8400-e29b-41d4-a716-446655440000",
+      "assessed_by": "admin-uuid",
+      "assessor": {
+        "id": "admin-uuid",
+        "username": "admin",
+        "nama": "Administrator",
+        "avatar_url": null
+      },
+      "scores": [
+        {
+          "id": "score-uuid-1",
+          "metric_id": "metric-uuid-1",
+          "metric": {
+            "id": "metric-uuid-1",
+            "nama": "Kreativitas",
+            "deskripsi": "Tingkat kreativitas dan orisinalitas karya",
+            "urutan": 1,
+            "is_active": true
+          },
+          "score": 9,
+          "comment": "Sangat kreatif dan original",
+          "created_at": "2025-12-05T14:00:00Z",
+          "updated_at": "2025-12-05T14:00:00Z"
+        },
+        {
+          "id": "score-uuid-2",
+          "metric_id": "metric-uuid-2",
+          "metric": {
+            "id": "metric-uuid-2",
+            "nama": "Teknis",
+            "deskripsi": "Kualitas teknis dan implementasi",
+            "urutan": 2,
+            "is_active": true
+          },
+          "score": 8,
+          "comment": "Implementasi baik",
+          "created_at": "2025-12-05T14:00:00Z",
+          "updated_at": "2025-12-05T14:00:00Z"
+        }
+      ],
+      "final_comment": "Portfolio yang sangat bagus, terus berkarya!",
+      "total_score": 8.5,
+      "created_at": "2025-12-05T14:00:00Z",
+      "updated_at": "2025-12-05T14:00:00Z"
+    }
+  }
+}
+```
+
+**Success Response (200) - Portfolio belum dinilai:**
+```json
+{
+  "success": true,
+  "data": {
+    "portfolio": {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "judul": "Website Portfolio Pribadi",
+      "slug": "website-portfolio-pribadi",
+      "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg"
+    },
+    "assessment": null
+  }
+}
+```
+
+**Error Responses:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Portfolio tidak ditemukan"
+  }
+}
+```
+
+`400 Bad Request` - Portfolio belum dipublish:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_STATUS",
+    "message": "Portfolio belum dipublish"
+  }
+}
+```
+
+---
+
+### POST /admin/assessments/:portfolio_id
+
+Buat atau update penilaian portfolio.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| portfolio_id | UUID | ID portfolio |
+
+**Request Body:**
+```json
+{
+  "scores": [
+    {
+      "metric_id": "metric-uuid-1",
+      "score": 9,
+      "comment": "Sangat kreatif dan original"
+    },
+    {
+      "metric_id": "metric-uuid-2",
+      "score": 8,
+      "comment": "Implementasi baik"
+    }
+  ],
+  "final_comment": "Portfolio yang sangat bagus, terus berkarya!"
+}
+```
+
+**Validation Rules:**
+- `scores`: Minimal 1 nilai harus diisi
+- `score`: Nilai antara 1-10
+- `comment`: Opsional, maksimal 500 karakter
+- `final_comment`: Opsional, maksimal 2000 karakter
+
+**Success Response (201) - Penilaian baru:**
+```json
+{
+  "success": true,
+  "message": "Penilaian berhasil disimpan",
+  "data": {
+    "id": "990e8400-e29b-41d4-a716-446655440000",
+    "portfolio_id": "880e8400-e29b-41d4-a716-446655440000",
+    "assessed_by": "admin-uuid",
+    "scores": [...],
+    "final_comment": "Portfolio yang sangat bagus, terus berkarya!",
+    "total_score": 8.5,
+    "created_at": "2025-12-05T14:00:00Z",
+    "updated_at": "2025-12-05T14:00:00Z"
+  }
+}
+```
+
+**Success Response (200) - Update penilaian:**
+```json
+{
+  "success": true,
+  "message": "Penilaian berhasil diupdate",
+  "data": { ... }
+}
+```
+
+**Error Responses:**
+
+`400 Bad Request` - Validasi gagal:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Nilai harus antara 1-10"
+  }
+}
+```
+
+`400 Bad Request` - Portfolio belum dipublish:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_STATUS",
+    "message": "Portfolio belum dipublish"
+  }
+}
+```
+
+---
+
+### DELETE /admin/assessments/:portfolio_id
+
+Hapus penilaian portfolio.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| portfolio_id | UUID | ID portfolio |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Penilaian berhasil dihapus"
+}
+```
+
+**Error Responses:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Penilaian tidak ditemukan"
+  }
+}
+```
+
+---
+
 ## Error Codes Reference
 
 | Code | HTTP Status | Description |
@@ -3579,6 +4108,15 @@ Hapus feedback (admin only).
 | `JURUSAN_IN_USE` | 409 | Jurusan masih digunakan |
 | `TAHUN_AJARAN_IN_USE` | 409 | Tahun ajaran masih digunakan |
 | `KELAS_IN_USE` | 409 | Kelas masih digunakan |
+| `METRIC_NOT_FOUND` | 404 | Metrik penilaian tidak ditemukan |
+| `ASSESSMENT_NOT_FOUND` | 404 | Penilaian tidak ditemukan |
+| `INVALID_STATUS` | 400 | Status portfolio tidak valid untuk operasi ini |
+| `INVALID_SCORE` | 400 | Nilai tidak valid (harus 1-10) |
+| `FETCH_FAILED` | 500 | Gagal mengambil data |
+| `CREATE_FAILED` | 500 | Gagal membuat data |
+| `UPDATE_FAILED` | 500 | Gagal mengupdate data |
+| `DELETE_FAILED` | 500 | Gagal menghapus data |
+| `REORDER_FAILED` | 500 | Gagal mengubah urutan |
 | `INTERNAL_ERROR` | 500 | Server error |
 
 ---

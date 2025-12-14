@@ -63,6 +63,8 @@ func main() {
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
 	feedbackRepo := repository.NewFeedbackRepository(db)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo)
+	assessmentRepo := repository.NewAssessmentRepository(db)
+	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -228,6 +230,19 @@ func main() {
 	adminRoutes.Get("/feedback/:id", feedbackHandler.AdminGetFeedback)
 	adminRoutes.Patch("/feedback/:id", feedbackHandler.AdminUpdateFeedback)
 	adminRoutes.Delete("/feedback/:id", feedbackHandler.AdminDeleteFeedback)
+
+	// Admin - Assessment Metrics
+	adminRoutes.Get("/assessment-metrics", assessmentHandler.ListMetrics)
+	adminRoutes.Post("/assessment-metrics", assessmentHandler.CreateMetric)
+	adminRoutes.Put("/assessment-metrics/reorder", assessmentHandler.ReorderMetrics)
+	adminRoutes.Patch("/assessment-metrics/:id", assessmentHandler.UpdateMetric)
+	adminRoutes.Delete("/assessment-metrics/:id", assessmentHandler.DeleteMetric)
+
+	// Admin - Portfolio Assessments
+	adminRoutes.Get("/assessments", assessmentHandler.ListPortfoliosForAssessment)
+	adminRoutes.Get("/assessments/:portfolio_id", assessmentHandler.GetAssessment)
+	adminRoutes.Post("/assessments/:portfolio_id", assessmentHandler.CreateOrUpdateAssessment)
+	adminRoutes.Delete("/assessments/:portfolio_id", assessmentHandler.DeleteAssessment)
 
 	// Public Feedback route (auth optional)
 	api.Post("/feedback", authMiddleware.Optional(), feedbackHandler.CreateFeedback)

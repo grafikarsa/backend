@@ -315,3 +315,48 @@ type Feedback struct {
 }
 
 func (Feedback) TableName() string { return "feedback" }
+
+// ============================================================================
+// ASSESSMENT MODELS
+// ============================================================================
+
+// AssessmentMetric - Master data metrik penilaian
+type AssessmentMetric struct {
+	BaseModel
+	Nama      string  `gorm:"type:varchar(100);not null" json:"nama"`
+	Deskripsi *string `gorm:"type:text" json:"deskripsi,omitempty"`
+	Urutan    int     `gorm:"not null;default:0" json:"urutan"`
+	IsActive  bool    `gorm:"not null;default:true" json:"is_active"`
+}
+
+func (AssessmentMetric) TableName() string { return "assessment_metrics" }
+
+// PortfolioAssessment - Header penilaian portfolio
+type PortfolioAssessment struct {
+	ID           uuid.UUID                  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	PortfolioID  uuid.UUID                  `gorm:"type:uuid;not null;uniqueIndex" json:"portfolio_id"`
+	AssessedBy   uuid.UUID                  `gorm:"type:uuid;not null" json:"assessed_by"`
+	FinalComment *string                    `gorm:"type:text" json:"final_comment,omitempty"`
+	TotalScore   *float64                   `gorm:"type:decimal(4,2)" json:"total_score,omitempty"`
+	CreatedAt    time.Time                  `gorm:"not null;default:now()" json:"created_at"`
+	UpdatedAt    time.Time                  `gorm:"not null;default:now()" json:"updated_at"`
+	Portfolio    *Portfolio                 `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
+	Assessor     *User                      `gorm:"foreignKey:AssessedBy" json:"assessor,omitempty"`
+	Scores       []PortfolioAssessmentScore `gorm:"foreignKey:AssessmentID" json:"scores,omitempty"`
+}
+
+func (PortfolioAssessment) TableName() string { return "portfolio_assessments" }
+
+// PortfolioAssessmentScore - Detail nilai per metrik
+type PortfolioAssessmentScore struct {
+	ID           uuid.UUID         `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	AssessmentID uuid.UUID         `gorm:"type:uuid;not null" json:"assessment_id"`
+	MetricID     uuid.UUID         `gorm:"type:uuid;not null" json:"metric_id"`
+	Score        int               `gorm:"type:smallint;not null" json:"score"`
+	Comment      *string           `gorm:"type:text" json:"comment,omitempty"`
+	CreatedAt    time.Time         `gorm:"not null;default:now()" json:"created_at"`
+	UpdatedAt    time.Time         `gorm:"not null;default:now()" json:"updated_at"`
+	Metric       *AssessmentMetric `gorm:"foreignKey:MetricID" json:"metric,omitempty"`
+}
+
+func (PortfolioAssessmentScore) TableName() string { return "portfolio_assessment_scores" }

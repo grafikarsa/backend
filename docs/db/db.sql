@@ -404,6 +404,75 @@ COMMENT ON COLUMN feedback.admin_notes IS 'Catatan internal dari admin';
 CREATE TRIGGER trg_feedback_updated_at BEFORE UPDATE ON feedback FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================================
+-- ASSESSMENT (Penilaian Portfolio)
+-- ============================================================================
+
+-- Assessment Metrics (Master data metrik penilaian)
+CREATE TABLE assessment_metrics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama VARCHAR(100) NOT NULL,
+    deskripsi TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_assessment_metrics_urutan ON assessment_metrics(urutan) WHERE deleted_at IS NULL;
+CREATE INDEX idx_assessment_metrics_active ON assessment_metrics(is_active) WHERE deleted_at IS NULL;
+
+COMMENT ON TABLE assessment_metrics IS 'Master data metrik penilaian portfolio';
+COMMENT ON COLUMN assessment_metrics.nama IS 'Nama metrik penilaian (contoh: Kreativitas, Teknis, dll)';
+COMMENT ON COLUMN assessment_metrics.deskripsi IS 'Deskripsi/penjelasan metrik untuk panduan penilaian';
+COMMENT ON COLUMN assessment_metrics.urutan IS 'Urutan tampilan metrik';
+COMMENT ON COLUMN assessment_metrics.is_active IS 'Status aktif metrik (soft disable tanpa hapus)';
+
+-- Portfolio Assessments (Header penilaian portfolio)
+CREATE TABLE portfolio_assessments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    assessed_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    final_comment TEXT,
+    total_score DECIMAL(4,2),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT portfolio_assessments_unique UNIQUE (portfolio_id),
+    CONSTRAINT portfolio_assessments_score_range CHECK (total_score IS NULL OR (total_score >= 1 AND total_score <= 10))
+);
+
+CREATE INDEX idx_portfolio_assessments_portfolio ON portfolio_assessments(portfolio_id);
+CREATE INDEX idx_portfolio_assessments_assessed_by ON portfolio_assessments(assessed_by);
+
+COMMENT ON TABLE portfolio_assessments IS 'Header penilaian portfolio oleh admin';
+COMMENT ON COLUMN portfolio_assessments.portfolio_id IS 'Portfolio yang dinilai (hanya published)';
+COMMENT ON COLUMN portfolio_assessments.assessed_by IS 'Admin yang melakukan penilaian';
+COMMENT ON COLUMN portfolio_assessments.final_comment IS 'Komentar/pesan akhir dari admin';
+COMMENT ON COLUMN portfolio_assessments.total_score IS 'Rata-rata nilai dari semua metrik (auto-calculated)';
+
+-- Portfolio Assessment Scores (Detail nilai per metrik)
+CREATE TABLE portfolio_assessment_scores (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    assessment_id UUID NOT NULL REFERENCES portfolio_assessments(id) ON DELETE CASCADE,
+    metric_id UUID NOT NULL REFERENCES assessment_metrics(id) ON DELETE RESTRICT,
+    score SMALLINT NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT portfolio_assessment_scores_unique UNIQUE (assessment_id, metric_id),
+    CONSTRAINT portfolio_assessment_scores_range CHECK (score >= 1 AND score <= 10)
+);
+
+CREATE INDEX idx_portfolio_assessment_scores_assessment ON portfolio_assessment_scores(assessment_id);
+CREATE INDEX idx_portfolio_assessment_scores_metric ON portfolio_assessment_scores(metric_id);
+
+COMMENT ON TABLE portfolio_assessment_scores IS 'Detail nilai per metrik untuk setiap penilaian';
+COMMENT ON COLUMN portfolio_assessment_scores.score IS 'Nilai 1-10 untuk metrik ini';
+COMMENT ON COLUMN portfolio_assessment_scores.comment IS 'Komentar opsional untuk metrik ini';
+
+-- ============================================================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================================================
 
@@ -510,6 +579,34 @@ CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE 
 CREATE TRIGGER trg_user_social_links_updated_at BEFORE UPDATE ON user_social_links FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_content_blocks_updated_at BEFORE UPDATE ON content_blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_assessment_metrics_updated_at BEFORE UPDATE ON assessment_metrics FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_portfolio_assessments_updated_at BEFORE UPDATE ON portfolio_assessments FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_portfolio_assessment_scores_updated_at BEFORE UPDATE ON portfolio_assessment_scores FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Function: Auto-calculate assessment total_score
+CREATE OR REPLACE FUNCTION calculate_assessment_total_score()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_avg_score DECIMAL(4,2);
+BEGIN
+    -- Calculate average score for the assessment
+    SELECT AVG(score)::DECIMAL(4,2) INTO v_avg_score
+    FROM portfolio_assessment_scores
+    WHERE assessment_id = COALESCE(NEW.assessment_id, OLD.assessment_id);
+    
+    -- Update total_score in portfolio_assessments
+    UPDATE portfolio_assessments
+    SET total_score = v_avg_score
+    WHERE id = COALESCE(NEW.assessment_id, OLD.assessment_id);
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_assessment_scores_calc_total
+    AFTER INSERT OR UPDATE OR DELETE ON portfolio_assessment_scores
+    FOR EACH ROW
+    EXECUTE FUNCTION calculate_assessment_total_score();
 
 -- Function: Ensure only one active tahun_ajaran
 CREATE OR REPLACE FUNCTION ensure_single_active_tahun_ajaran()
@@ -591,6 +688,14 @@ INSERT INTO tags (nama) VALUES
 ('Illustration'),
 ('Game Development');
 
+-- Insert sample assessment metrics
+INSERT INTO assessment_metrics (nama, deskripsi, urutan) VALUES
+('Kreativitas', 'Tingkat orisinalitas dan inovasi dalam karya', 1),
+('Kualitas Teknis', 'Kualitas eksekusi teknis dan penguasaan tools', 2),
+('Estetika Visual', 'Keindahan visual dan komposisi desain', 3),
+('Kelengkapan', 'Kelengkapan dokumentasi dan penjelasan karya', 4),
+('Relevansi', 'Kesesuaian dengan tujuan dan target audience', 5);
+
 -- ============================================================================
 -- VIEWS (untuk kemudahan query)
 -- ============================================================================
@@ -651,6 +756,30 @@ LEFT JOIN kelas k ON u.kelas_id = k.id
 LEFT JOIN jurusan j ON k.jurusan_id = j.id
 WHERE p.status = 'published' AND p.deleted_at IS NULL
 ORDER BY p.published_at DESC;
+
+-- View: Portfolio dengan assessment info
+CREATE OR REPLACE VIEW v_portfolio_assessments AS
+SELECT 
+    p.id AS portfolio_id,
+    p.judul,
+    p.slug,
+    p.thumbnail_url,
+    p.published_at,
+    p.user_id,
+    u.username AS user_username,
+    u.nama AS user_nama,
+    u.avatar_url AS user_avatar,
+    pa.id AS assessment_id,
+    pa.total_score,
+    pa.final_comment,
+    pa.assessed_by,
+    assessor.nama AS assessor_nama,
+    pa.created_at AS assessed_at
+FROM portfolios p
+JOIN users u ON p.user_id = u.id AND u.deleted_at IS NULL
+LEFT JOIN portfolio_assessments pa ON p.id = pa.portfolio_id
+LEFT JOIN users assessor ON pa.assessed_by = assessor.id
+WHERE p.status = 'published' AND p.deleted_at IS NULL;
 
 -- ============================================================================
 -- CLEANUP FUNCTIONS (untuk maintenance)

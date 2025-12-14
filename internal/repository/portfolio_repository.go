@@ -40,6 +40,24 @@ func (r *PortfolioRepository) FindBySlugAndUserID(slug string, userID uuid.UUID)
 	return &portfolio, nil
 }
 
+func (r *PortfolioRepository) FindPublishedBySlugAndUsername(slug string, username string) (*domain.Portfolio, error) {
+	var portfolio domain.Portfolio
+	query := r.db.Preload("User.Kelas.Jurusan").Preload("Tags").Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
+		return db.Order("block_order ASC")
+	}).Joins("JOIN users ON users.id = portfolios.user_id").
+		Where("portfolios.slug = ? AND portfolios.deleted_at IS NULL AND portfolios.status = ?", slug, domain.StatusPublished)
+
+	if username != "" {
+		query = query.Where("users.username = ? AND users.deleted_at IS NULL", username)
+	}
+
+	err := query.First(&portfolio).Error
+	if err != nil {
+		return nil, err
+	}
+	return &portfolio, nil
+}
+
 func (r *PortfolioRepository) Update(portfolio *domain.Portfolio) error {
 	return r.db.Save(portfolio).Error
 }
