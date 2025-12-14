@@ -200,27 +200,8 @@ func (r *PortfolioRepository) UpdateTags(portfolioID uuid.UUID, tagIDs []uuid.UU
 	})
 }
 
-func (r *PortfolioRepository) UpdateSeries(portfolioID uuid.UUID, seriesIDs []uuid.UUID) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Delete existing series
-		if err := tx.Where("portfolio_id = ?", portfolioID).Delete(&domain.PortfolioSeries{}).Error; err != nil {
-			return err
-		}
-		// Insert new series
-		if len(seriesIDs) > 0 {
-			var series []domain.PortfolioSeries
-			for _, seriesID := range seriesIDs {
-				series = append(series, domain.PortfolioSeries{
-					PortfolioID: portfolioID,
-					SeriesID:    seriesID,
-				})
-			}
-			if err := tx.Create(&series).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+func (r *PortfolioRepository) UpdateSeriesID(portfolioID uuid.UUID, seriesID *uuid.UUID) error {
+	return r.db.Model(&domain.Portfolio{}).Where("id = ?", portfolioID).Update("series_id", seriesID).Error
 }
 
 // Content Blocks

@@ -524,11 +524,15 @@ func (h *AdminHandler) ListSeries(c *fiber.Ctx) error {
 
 	var result []dto.SeriesDTO
 	for _, s := range series {
+		portfolioCount, _ := h.adminRepo.GetSeriesPortfolioCount(s.ID)
 		result = append(result, dto.SeriesDTO{
-			ID:        s.ID,
-			Nama:      s.Nama,
-			IsActive:  s.IsActive,
-			CreatedAt: s.CreatedAt,
+			ID:             s.ID,
+			Nama:           s.Nama,
+			Deskripsi:      s.Deskripsi,
+			IsActive:       s.IsActive,
+			BlockCount:     len(s.Blocks),
+			PortfolioCount: portfolioCount,
+			CreatedAt:      s.CreatedAt,
 		})
 	}
 
@@ -545,6 +549,30 @@ func (h *AdminHandler) ListSeries(c *fiber.Ctx) error {
 	}))
 }
 
+func (h *AdminHandler) GetSeries(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	series, err := h.adminRepo.FindSeriesByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("SERIES_NOT_FOUND", "Series tidak ditemukan"))
+	}
+
+	portfolioCount, _ := h.adminRepo.GetSeriesPortfolioCount(series.ID)
+
+	return c.JSON(dto.SuccessResponse(dto.SeriesDetailDTO{
+		ID:             series.ID,
+		Nama:           series.Nama,
+		Deskripsi:      series.Deskripsi,
+		IsActive:       series.IsActive,
+		Blocks:         dto.SeriesBlocksToDTOs(series.Blocks),
+		PortfolioCount: portfolioCount,
+		CreatedAt:      series.CreatedAt,
+	}, ""))
+}
+
 func (h *AdminHandler) CreateSeries(c *fiber.Ctx) error {
 	var req dto.CreateSeriesRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -554,6 +582,12 @@ func (h *AdminHandler) CreateSeries(c *fiber.Ctx) error {
 	if req.Nama == "" {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
 			dto.ErrorDetail{Field: "nama", Message: "Nama series wajib diisi"},
+		))
+	}
+
+	if len(req.Blocks) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+			dto.ErrorDetail{Field: "blocks", Message: "Series harus memiliki minimal 1 block"},
 		))
 	}
 
@@ -568,20 +602,35 @@ func (h *AdminHandler) CreateSeries(c *fiber.Ctx) error {
 		isActive = *req.IsActive
 	}
 
+	// Build blocks
+	var blocks []domain.SeriesBlock
+	for i, b := range req.Blocks {
+		blocks = append(blocks, domain.SeriesBlock{
+			BlockType:  domain.ContentBlockType(b.BlockType),
+			BlockOrder: i,
+			Instruksi:  b.Instruksi,
+		})
+	}
+
 	series := &domain.Series{
-		Nama:     req.Nama,
-		IsActive: isActive,
+		Nama:      req.Nama,
+		Deskripsi: req.Deskripsi,
+		IsActive:  isActive,
+		Blocks:    blocks,
 	}
 
 	if err := h.adminRepo.CreateSeries(series); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal membuat series"))
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(dto.SeriesDTO{
-		ID:        series.ID,
-		Nama:      series.Nama,
-		IsActive:  series.IsActive,
-		CreatedAt: series.CreatedAt,
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(dto.SeriesDetailDTO{
+		ID:             series.ID,
+		Nama:           series.Nama,
+		Deskripsi:      series.Deskripsi,
+		IsActive:       series.IsActive,
+		Blocks:         dto.SeriesBlocksToDTOs(series.Blocks),
+		PortfolioCount: 0,
+		CreatedAt:      series.CreatedAt,
 	}, "Series berhasil dibuat"))
 }
 
@@ -609,6 +658,9 @@ func (h *AdminHandler) UpdateSeries(c *fiber.Ctx) error {
 		}
 		series.Nama = *req.Nama
 	}
+	if req.Deskripsi != nil {
+		series.Deskripsi = req.Deskripsi
+	}
 	if req.IsActive != nil {
 		series.IsActive = *req.IsActive
 	}
@@ -617,11 +669,38 @@ func (h *AdminHandler) UpdateSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui series"))
 	}
 
-	return c.JSON(dto.SuccessResponse(dto.SeriesDTO{
-		ID:        series.ID,
-		Nama:      series.Nama,
-		IsActive:  series.IsActive,
-		CreatedAt: series.CreatedAt,
+	// Update blocks if provided
+	if req.Blocks != nil {
+		if len(req.Blocks) == 0 {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+				dto.ErrorDetail{Field: "blocks", Message: "Series harus memiliki minimal 1 block"},
+			))
+		}
+		var blocks []domain.SeriesBlock
+		for i, b := range req.Blocks {
+			blocks = append(blocks, domain.SeriesBlock{
+				BlockType:  domain.ContentBlockType(b.BlockType),
+				BlockOrder: i,
+				Instruksi:  b.Instruksi,
+			})
+		}
+		if err := h.adminRepo.UpdateSeriesBlocks(id, blocks); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui blocks"))
+		}
+	}
+
+	// Reload series with blocks
+	series, _ = h.adminRepo.FindSeriesByID(id)
+	portfolioCount, _ := h.adminRepo.GetSeriesPortfolioCount(series.ID)
+
+	return c.JSON(dto.SuccessResponse(dto.SeriesDetailDTO{
+		ID:             series.ID,
+		Nama:           series.Nama,
+		Deskripsi:      series.Deskripsi,
+		IsActive:       series.IsActive,
+		Blocks:         dto.SeriesBlocksToDTOs(series.Blocks),
+		PortfolioCount: portfolioCount,
+		CreatedAt:      series.CreatedAt,
 	}, "Series berhasil diperbarui"))
 }
 

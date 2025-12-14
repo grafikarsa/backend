@@ -137,10 +137,11 @@ CREATE INDEX idx_tags_nama ON tags(nama) WHERE deleted_at IS NULL;
 
 COMMENT ON TABLE tags IS 'Master data tags untuk kategorisasi portofolio';
 
--- Series (untuk kategorisasi berdasarkan event/tema)
+-- Series (template portofolio dengan block konten)
 CREATE TABLE series (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nama VARCHAR(100) NOT NULL UNIQUE,
+    deskripsi TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -150,8 +151,31 @@ CREATE TABLE series (
 CREATE INDEX idx_series_nama ON series(nama) WHERE deleted_at IS NULL;
 CREATE INDEX idx_series_active ON series(is_active) WHERE deleted_at IS NULL;
 
-COMMENT ON TABLE series IS 'Master data series untuk kategorisasi portfolio berdasarkan event/tema (PJBL, Lomba, dll)';
+COMMENT ON TABLE series IS 'Template series untuk struktur portofolio dengan block konten yang sudah ditentukan';
+COMMENT ON COLUMN series.deskripsi IS 'Deskripsi/penjelasan tentang series template ini';
 COMMENT ON COLUMN series.is_active IS 'Status aktif series, hanya series aktif yang ditampilkan ke user';
+
+-- Series Blocks (template block konten untuk series)
+CREATE TABLE series_blocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    series_id UUID NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    block_type content_block_type NOT NULL,
+    block_order INTEGER NOT NULL,
+    instruksi TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT series_blocks_order_positive CHECK (block_order >= 0),
+    CONSTRAINT series_blocks_unique_order UNIQUE (series_id, block_order) DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_series_blocks_series ON series_blocks(series_id);
+CREATE INDEX idx_series_blocks_order ON series_blocks(series_id, block_order);
+
+COMMENT ON TABLE series_blocks IS 'Template block konten untuk series';
+COMMENT ON COLUMN series_blocks.block_type IS 'Tipe block: text, image, youtube, dll';
+COMMENT ON COLUMN series_blocks.instruksi IS 'Instruksi/panduan untuk mengisi block ini';
+COMMENT ON COLUMN series_blocks.block_order IS 'Urutan block dalam template (dimulai dari 0)';
 
 -- ============================================================================
 -- USER & AUTHENTICATION
@@ -311,6 +335,7 @@ CREATE TABLE portfolios (
     reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMPTZ,
     published_at TIMESTAMPTZ,
+    series_id UUID REFERENCES series(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
@@ -323,10 +348,12 @@ CREATE INDEX idx_portfolios_status ON portfolios(status) WHERE deleted_at IS NUL
 CREATE INDEX idx_portfolios_published ON portfolios(published_at DESC) WHERE status = 'published' AND deleted_at IS NULL;
 CREATE INDEX idx_portfolios_pending ON portfolios(created_at) WHERE status = 'pending_review' AND deleted_at IS NULL;
 CREATE INDEX idx_portfolios_slug ON portfolios(slug) WHERE deleted_at IS NULL;
+CREATE INDEX idx_portfolios_series ON portfolios(series_id) WHERE deleted_at IS NULL AND series_id IS NOT NULL;
 
 COMMENT ON TABLE portfolios IS 'Portofolio karya user';
 COMMENT ON COLUMN portfolios.slug IS 'URL-friendly identifier, auto-generated dari judul';
 COMMENT ON COLUMN portfolios.admin_review_note IS 'Catatan review dari admin (alasan reject, feedback, dll)';
+COMMENT ON COLUMN portfolios.series_id IS 'Series template yang digunakan (NULL jika portofolio bebas)';
 
 -- Portfolio Tags (many-to-many)
 CREATE TABLE portfolio_tags (
@@ -340,19 +367,6 @@ CREATE TABLE portfolio_tags (
 CREATE INDEX idx_portfolio_tags_tag ON portfolio_tags(tag_id);
 
 COMMENT ON TABLE portfolio_tags IS 'Relasi many-to-many portfolio dan tags';
-
--- Portfolio Series (many-to-many)
-CREATE TABLE portfolio_series (
-    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
-    series_id UUID NOT NULL REFERENCES series(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
-    PRIMARY KEY (portfolio_id, series_id)
-);
-
-CREATE INDEX idx_portfolio_series_series ON portfolio_series(series_id);
-
-COMMENT ON TABLE portfolio_series IS 'Relasi many-to-many portfolio dan series';
 
 -- Content Blocks
 CREATE TABLE content_blocks (
@@ -605,6 +619,7 @@ CREATE TRIGGER trg_tahun_ajaran_updated_at BEFORE UPDATE ON tahun_ajaran FOR EAC
 CREATE TRIGGER trg_kelas_updated_at BEFORE UPDATE ON kelas FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_tags_updated_at BEFORE UPDATE ON tags FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_series_updated_at BEFORE UPDATE ON series FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_series_blocks_updated_at BEFORE UPDATE ON series_blocks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_user_social_links_updated_at BEFORE UPDATE ON user_social_links FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -718,13 +733,50 @@ INSERT INTO tags (nama) VALUES
 ('Illustration'),
 ('Game Development');
 
--- Insert sample series
-INSERT INTO series (nama, is_active) VALUES
-('PJBL Semester 1', TRUE),
-('PJBL Semester 2', TRUE),
-('Ujian Praktik', TRUE),
-('Lomba Internal', TRUE),
-('Project Akhir', TRUE);
+-- Insert sample series with blocks
+DO $$
+DECLARE
+    v_series_id_1 UUID;
+    v_series_id_2 UUID;
+    v_series_id_3 UUID;
+BEGIN
+    -- Series 1: PJBL Semester 1
+    INSERT INTO series (nama, deskripsi, is_active) VALUES
+    ('PJBL Semester 1', 'Template untuk proyek PJBL semester 1. Siswa wajib mengisi semua block sesuai instruksi.', TRUE)
+    RETURNING id INTO v_series_id_1;
+    
+    INSERT INTO series_blocks (series_id, block_type, block_order, instruksi) VALUES
+    (v_series_id_1, 'text', 0, 'Judul dan deskripsi singkat proyek PJBL'),
+    (v_series_id_1, 'image', 1, 'Thumbnail/cover proyek (rasio 16:9 recommended)'),
+    (v_series_id_1, 'youtube', 2, 'Video dokumentasi presentasi PJBL'),
+    (v_series_id_1, 'text', 3, 'Tujuan dan latar belakang pembuatan proyek'),
+    (v_series_id_1, 'text', 4, 'Proses pengerjaan dan tantangan yang dihadapi'),
+    (v_series_id_1, 'image', 5, 'Screenshot atau foto hasil akhir proyek'),
+    (v_series_id_1, 'text', 6, 'Kesimpulan dan pembelajaran yang didapat');
+
+    -- Series 2: Ujian Praktik
+    INSERT INTO series (nama, deskripsi, is_active) VALUES
+    ('Ujian Praktik', 'Template untuk dokumentasi ujian praktik kejuruan.', TRUE)
+    RETURNING id INTO v_series_id_2;
+    
+    INSERT INTO series_blocks (series_id, block_type, block_order, instruksi) VALUES
+    (v_series_id_2, 'text', 0, 'Judul proyek ujian praktik'),
+    (v_series_id_2, 'text', 1, 'Deskripsi singkat dan tujuan proyek'),
+    (v_series_id_2, 'image', 2, 'Screenshot tampilan utama aplikasi/karya'),
+    (v_series_id_2, 'text', 3, 'Fitur-fitur utama yang dikembangkan'),
+    (v_series_id_2, 'youtube', 4, 'Video demo aplikasi/karya (opsional)');
+
+    -- Series 3: Lomba Internal
+    INSERT INTO series (nama, deskripsi, is_active) VALUES
+    ('Lomba Internal', 'Template untuk karya lomba internal sekolah.', TRUE)
+    RETURNING id INTO v_series_id_3;
+    
+    INSERT INTO series_blocks (series_id, block_type, block_order, instruksi) VALUES
+    (v_series_id_3, 'text', 0, 'Judul karya lomba'),
+    (v_series_id_3, 'image', 1, 'Gambar utama karya'),
+    (v_series_id_3, 'text', 2, 'Konsep dan ide di balik karya'),
+    (v_series_id_3, 'text', 3, 'Proses kreatif pembuatan karya');
+END $$;
 
 -- Insert sample assessment metrics
 INSERT INTO assessment_metrics (nama, deskripsi, urutan) VALUES
@@ -788,11 +840,12 @@ SELECT
     j.nama AS user_jurusan,
     (SELECT COUNT(*) FROM portfolio_likes WHERE portfolio_id = p.id) AS like_count,
     (SELECT ARRAY_AGG(t.nama) FROM portfolio_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.portfolio_id = p.id) AS tags,
-    (SELECT ARRAY_AGG(s.nama) FROM portfolio_series ps JOIN series s ON ps.series_id = s.id WHERE ps.portfolio_id = p.id) AS series
+    s.nama AS series_nama
 FROM portfolios p
 JOIN users u ON p.user_id = u.id AND u.deleted_at IS NULL
 LEFT JOIN kelas k ON u.kelas_id = k.id
 LEFT JOIN jurusan j ON k.jurusan_id = j.id
+LEFT JOIN series s ON p.series_id = s.id AND s.deleted_at IS NULL
 WHERE p.status = 'published' AND p.deleted_at IS NULL
 ORDER BY p.published_at DESC;
 

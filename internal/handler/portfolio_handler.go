@@ -288,8 +288,8 @@ func (h *PortfolioHandler) Create(c *fiber.Ctx) error {
 		h.portfolioRepo.UpdateTags(portfolio.ID, req.TagIDs)
 	}
 
-	if len(req.SeriesIDs) > 0 {
-		h.portfolioRepo.UpdateSeries(portfolio.ID, req.SeriesIDs)
+	if req.SeriesID != nil {
+		h.portfolioRepo.UpdateSeriesID(portfolio.ID, req.SeriesID)
 	}
 
 	portfolio, _ = h.portfolioRepo.FindByID(portfolio.ID)
@@ -345,8 +345,8 @@ func (h *PortfolioHandler) Update(c *fiber.Ctx) error {
 		h.portfolioRepo.UpdateTags(portfolio.ID, req.TagIDs)
 	}
 
-	if req.SeriesIDs != nil {
-		h.portfolioRepo.UpdateSeries(portfolio.ID, req.SeriesIDs)
+	if req.SeriesID != nil {
+		h.portfolioRepo.UpdateSeriesID(portfolio.ID, req.SeriesID)
 	}
 
 	return c.JSON(dto.SuccessResponse(map[string]interface{}{
@@ -635,8 +635,8 @@ func (h *PortfolioHandler) toPortfolioDetailDTO(p *domain.Portfolio, currentUser
 		pDTO.Tags = append(pDTO.Tags, dto.TagDTO{ID: t.ID, Nama: t.Nama})
 	}
 
-	for _, s := range p.Series {
-		pDTO.Series = append(pDTO.Series, dto.SeriesDTO{ID: s.ID, Nama: s.Nama, IsActive: s.IsActive, CreatedAt: s.CreatedAt})
+	if p.Series != nil {
+		pDTO.Series = &dto.PortfolioSeriesDTO{ID: p.Series.ID, Nama: p.Series.Nama}
 	}
 
 	for _, b := range p.ContentBlocks {

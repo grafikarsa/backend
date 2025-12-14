@@ -8,17 +8,23 @@ import (
 
 // Portfolio List Item
 type PortfolioListDTO struct {
-	ID           uuid.UUID         `json:"id"`
-	Judul        string            `json:"judul"`
-	Slug         string            `json:"slug"`
-	ThumbnailURL *string           `json:"thumbnail_url,omitempty"`
-	PublishedAt  *time.Time        `json:"published_at,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	LikeCount    int64             `json:"like_count"`
-	IsLiked      bool              `json:"is_liked,omitempty"`
-	User         *PortfolioUserDTO `json:"user,omitempty"`
-	Tags         []TagDTO          `json:"tags,omitempty"`
-	Series       []SeriesDTO       `json:"series,omitempty"`
+	ID           uuid.UUID           `json:"id"`
+	Judul        string              `json:"judul"`
+	Slug         string              `json:"slug"`
+	ThumbnailURL *string             `json:"thumbnail_url,omitempty"`
+	PublishedAt  *time.Time          `json:"published_at,omitempty"`
+	CreatedAt    time.Time           `json:"created_at"`
+	LikeCount    int64               `json:"like_count"`
+	IsLiked      bool                `json:"is_liked,omitempty"`
+	User         *PortfolioUserDTO   `json:"user,omitempty"`
+	Tags         []TagDTO            `json:"tags,omitempty"`
+	Series       *PortfolioSeriesDTO `json:"series,omitempty"`
+}
+
+// PortfolioSeriesDTO - series info dalam portfolio
+type PortfolioSeriesDTO struct {
+	ID   uuid.UUID `json:"id"`
+	Nama string    `json:"nama"`
 }
 
 type PortfolioUserDTO struct {
@@ -33,22 +39,22 @@ type PortfolioUserDTO struct {
 
 // Portfolio Detail
 type PortfolioDetailDTO struct {
-	ID              uuid.UUID         `json:"id"`
-	Judul           string            `json:"judul"`
-	Slug            string            `json:"slug"`
-	ThumbnailURL    *string           `json:"thumbnail_url,omitempty"`
-	Status          string            `json:"status"`
-	AdminReviewNote *string           `json:"admin_review_note,omitempty"`
-	ReviewedAt      *time.Time        `json:"reviewed_at,omitempty"`
-	PublishedAt     *time.Time        `json:"published_at,omitempty"`
-	CreatedAt       time.Time         `json:"created_at"`
-	UpdatedAt       time.Time         `json:"updated_at"`
-	LikeCount       int64             `json:"like_count"`
-	IsLiked         bool              `json:"is_liked"`
-	User            *PortfolioUserDTO `json:"user,omitempty"`
-	Tags            []TagDTO          `json:"tags,omitempty"`
-	Series          []SeriesDTO       `json:"series,omitempty"`
-	ContentBlocks   []ContentBlockDTO `json:"content_blocks,omitempty"`
+	ID              uuid.UUID           `json:"id"`
+	Judul           string              `json:"judul"`
+	Slug            string              `json:"slug"`
+	ThumbnailURL    *string             `json:"thumbnail_url,omitempty"`
+	Status          string              `json:"status"`
+	AdminReviewNote *string             `json:"admin_review_note,omitempty"`
+	ReviewedAt      *time.Time          `json:"reviewed_at,omitempty"`
+	PublishedAt     *time.Time          `json:"published_at,omitempty"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+	LikeCount       int64               `json:"like_count"`
+	IsLiked         bool                `json:"is_liked"`
+	User            *PortfolioUserDTO   `json:"user,omitempty"`
+	Tags            []TagDTO            `json:"tags,omitempty"`
+	Series          *PortfolioSeriesDTO `json:"series,omitempty"`
+	ContentBlocks   []ContentBlockDTO   `json:"content_blocks,omitempty"`
 }
 
 // My Portfolio List Item
@@ -68,17 +74,17 @@ type MyPortfolioDTO struct {
 
 // Create/Update Portfolio
 type CreatePortfolioRequest struct {
-	Judul     string      `json:"judul" validate:"required"`
-	UserID    *uuid.UUID  `json:"user_id,omitempty"` // Admin can assign to another user
-	TagIDs    []uuid.UUID `json:"tag_ids,omitempty"`
-	SeriesIDs []uuid.UUID `json:"series_ids,omitempty"`
+	Judul    string      `json:"judul" validate:"required"`
+	UserID   *uuid.UUID  `json:"user_id,omitempty"` // Admin can assign to another user
+	TagIDs   []uuid.UUID `json:"tag_ids,omitempty"`
+	SeriesID *uuid.UUID  `json:"series_id,omitempty"`
 }
 
 type UpdatePortfolioRequest struct {
 	Judul        *string     `json:"judul,omitempty"`
 	ThumbnailURL *string     `json:"thumbnail_url,omitempty"`
 	TagIDs       []uuid.UUID `json:"tag_ids,omitempty"`
-	SeriesIDs    []uuid.UUID `json:"series_ids,omitempty"`
+	SeriesID     *uuid.UUID  `json:"series_id,omitempty"`
 }
 
 // Content Block

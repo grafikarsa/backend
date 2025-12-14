@@ -71,15 +71,36 @@ func (h *PublicHandler) ListSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data series"))
 	}
 
-	var result []dto.SeriesDTO
+	var result []dto.SeriesBriefDTO
 	for _, s := range series {
-		result = append(result, dto.SeriesDTO{
-			ID:        s.ID,
-			Nama:      s.Nama,
-			IsActive:  s.IsActive,
-			CreatedAt: s.CreatedAt,
+		result = append(result, dto.SeriesBriefDTO{
+			ID:         s.ID,
+			Nama:       s.Nama,
+			Deskripsi:  s.Deskripsi,
+			BlockCount: len(s.Blocks),
+			Blocks:     dto.SeriesBlocksToDTOs(s.Blocks),
 		})
 	}
 
 	return c.JSON(dto.SuccessResponse(result, ""))
+}
+
+func (h *PublicHandler) GetSeries(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	series, err := h.adminRepo.FindSeriesByID(id)
+	if err != nil || !series.IsActive {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("SERIES_NOT_FOUND", "Series tidak ditemukan"))
+	}
+
+	return c.JSON(dto.SuccessResponse(dto.SeriesBriefDTO{
+		ID:         series.ID,
+		Nama:       series.Nama,
+		Deskripsi:  series.Deskripsi,
+		BlockCount: len(series.Blocks),
+		Blocks:     dto.SeriesBlocksToDTOs(series.Blocks),
+	}, ""))
 }

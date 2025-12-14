@@ -868,9 +868,10 @@ Detail portfolio berdasarkan slug.
       { "id": "tag-uuid-1", "nama": "Web Development" },
       { "id": "tag-uuid-2", "nama": "UI/UX Design" }
     ],
-    "series": [
-      { "id": "series-uuid-1", "nama": "PJBL Semester 1", "is_active": true }
-    ],
+    "series": {
+      "id": "series-uuid-1",
+      "nama": "PJBL Semester 1 2024"
+    },
     "content_blocks": [
       {
         "id": "block-uuid-1",
@@ -878,7 +879,8 @@ Detail portfolio berdasarkan slug.
         "block_order": 0,
         "payload": {
           "content": "<p>Ini adalah portfolio website pribadi saya...</p>"
-        }
+        },
+        "series_instruksi": "Judul dan deskripsi singkat proyek"
       },
       {
         "id": "block-uuid-2",
@@ -887,7 +889,8 @@ Detail portfolio berdasarkan slug.
         "payload": {
           "url": "https://cdn.grafikarsa.com/images/screenshot1.jpg",
           "caption": "Tampilan homepage"
-        }
+        },
+        "series_instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
       },
       {
         "id": "block-uuid-3",
@@ -896,7 +899,8 @@ Detail portfolio berdasarkan slug.
         "payload": {
           "video_id": "dQw4w9WgXcQ",
           "title": "Demo Video"
-        }
+        },
+        "series_instruksi": "Video dokumentasi presentasi PJBL"
       }
     ]
   }
@@ -990,9 +994,11 @@ Buat portfolio baru (status default: draft).
 {
   "judul": "Website Portfolio Pribadi",
   "tag_ids": ["tag-uuid-1", "tag-uuid-2"],
-  "series_ids": ["series-uuid-1"]
+  "series_id": "series-uuid-1"
 }
 ```
+
+**Note:** `series_id` adalah optional. Jika disertakan, portfolio akan menggunakan template blocks dari series tersebut dan blocks akan di-generate otomatis berdasarkan template.
 
 **Success Response (201):**
 ```json
@@ -1008,10 +1014,26 @@ Buat portfolio baru (status default: draft).
       { "id": "tag-uuid-1", "nama": "Web Development" },
       { "id": "tag-uuid-2", "nama": "UI/UX Design" }
     ],
-    "series": [
-      { "id": "series-uuid-1", "nama": "PJBL Semester 1", "is_active": true }
+    "series": {
+      "id": "series-uuid-1",
+      "nama": "PJBL Semester 1 2024"
+    },
+    "content_blocks": [
+      {
+        "id": "block-uuid-1",
+        "block_type": "text",
+        "block_order": 0,
+        "payload": {},
+        "series_instruksi": "Judul dan deskripsi singkat proyek"
+      },
+      {
+        "id": "block-uuid-2",
+        "block_type": "image",
+        "block_order": 1,
+        "payload": {},
+        "series_instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
+      }
     ],
-    "content_blocks": [],
     "created_at": "2025-12-09T10:00:00Z"
   },
   "message": "Portfolio berhasil dibuat"
@@ -1061,7 +1083,7 @@ Update portfolio.
   "judul": "Website Portfolio Pribadi - Updated",
   "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
   "tag_ids": ["tag-uuid-1", "tag-uuid-3"],
-  "series_ids": ["series-uuid-1", "series-uuid-2"]
+  "series_id": "series-uuid-1"
 }
 ```
 
@@ -1450,7 +1472,13 @@ Daftar semua tags.
 
 ## 7. Series
 
-Series adalah fitur pengkategorian portfolio berdasarkan event/tema tertentu (misal: Ujian PJBL, Lomba, Project Akhir Semester). Berbeda dengan Tags yang bersifat umum, Series lebih spesifik untuk event/kegiatan tertentu dan memiliki status aktif/non-aktif.
+Series adalah **template portofolio** yang mendefinisikan struktur block konten beserta instruksi untuk setiap block. Siswa yang memilih series akan mendapatkan template block yang sudah ditentukan dan tidak dapat diubah urutannya (locked blocks).
+
+**Konsep:**
+- Series mendefinisikan template blocks dengan instruksi per block
+- Relasi portfolio ke series adalah many-to-one (banyak portfolio → 1 series, atau tanpa series)
+- Siswa tidak dapat menambah/hapus/reorder blocks jika menggunakan series
+- Series nonaktif hanya hilang dari dropdown, tidak mempengaruhi portfolio yang sudah ada
 
 ### GET /series
 
@@ -1465,17 +1493,100 @@ Daftar semua series yang aktif (untuk dropdown di form portfolio).
   "data": [
     {
       "id": "series-uuid-1",
-      "nama": "PJBL Semester 1",
-      "is_active": true,
-      "created_at": "2025-12-01T10:00:00Z"
+      "nama": "PJBL Semester 1 2024",
+      "deskripsi": "Template untuk proyek PJBL semester 1",
+      "block_count": 7
     },
     {
       "id": "series-uuid-2",
-      "nama": "Ujian Praktik",
-      "is_active": true,
-      "created_at": "2025-12-01T10:00:00Z"
+      "nama": "Ujian Praktik 2024",
+      "deskripsi": "Template untuk ujian praktik kejuruan",
+      "block_count": 5
     }
   ]
+}
+```
+
+---
+
+### GET /series/{id}
+
+Detail series dengan blocks template (untuk generate blocks saat siswa memilih series).
+
+**Authentication:** None
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID series |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "series-uuid-1",
+    "nama": "PJBL Semester 1 2024",
+    "deskripsi": "Template untuk proyek PJBL semester 1 tahun ajaran 2024/2025",
+    "block_count": 7,
+    "blocks": [
+      {
+        "id": "block-uuid-1",
+        "block_type": "text",
+        "block_order": 0,
+        "instruksi": "Judul dan deskripsi singkat proyek"
+      },
+      {
+        "id": "block-uuid-2",
+        "block_type": "image",
+        "block_order": 1,
+        "instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
+      },
+      {
+        "id": "block-uuid-3",
+        "block_type": "youtube",
+        "block_order": 2,
+        "instruksi": "Video dokumentasi presentasi PJBL"
+      },
+      {
+        "id": "block-uuid-4",
+        "block_type": "text",
+        "block_order": 3,
+        "instruksi": "Tujuan pembuatan proyek"
+      },
+      {
+        "id": "block-uuid-5",
+        "block_type": "text",
+        "block_order": 4,
+        "instruksi": "Proses pengerjaan"
+      },
+      {
+        "id": "block-uuid-6",
+        "block_type": "image",
+        "block_order": 5,
+        "instruksi": "Screenshot hasil akhir"
+      },
+      {
+        "id": "block-uuid-7",
+        "block_type": "text",
+        "block_order": 6,
+        "instruksi": "Kesimpulan dan pembelajaran"
+      }
+    ]
+  }
+}
+```
+
+**Error Response:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SERIES_NOT_FOUND",
+    "message": "Series tidak ditemukan"
+  }
 }
 ```
 
@@ -3069,7 +3180,13 @@ Hapus tag.
 
 ## 18. Admin - Series
 
-Series adalah fitur pengkategorian portfolio berdasarkan event/tema tertentu. Admin dapat mengelola series dengan CRUD operations dan mengatur status aktif/non-aktif.
+Series adalah **template portofolio** yang mendefinisikan struktur block konten beserta instruksi untuk setiap block. Admin dapat mengelola series template dengan CRUD operations termasuk block builder.
+
+**Konsep:**
+- Series mendefinisikan template blocks dengan instruksi per block
+- Relasi portfolio ke series adalah many-to-one (banyak portfolio → 1 series)
+- Series nonaktif hanya hilang dari dropdown siswa, tidak mempengaruhi portfolio yang sudah ada
+- Setiap series harus memiliki minimal 1 block
 
 ### GET /admin/series
 
@@ -3091,14 +3208,20 @@ Daftar semua series (termasuk yang tidak aktif).
   "data": [
     {
       "id": "series-uuid-1",
-      "nama": "PJBL Semester 1",
+      "nama": "PJBL Semester 1 2024",
+      "deskripsi": "Template untuk proyek PJBL semester 1",
       "is_active": true,
+      "block_count": 7,
+      "portfolio_count": 25,
       "created_at": "2025-12-01T10:00:00Z"
     },
     {
       "id": "series-uuid-2",
-      "nama": "Ujian Praktik",
+      "nama": "Ujian Praktik 2024",
+      "deskripsi": "Template untuk ujian praktik kejuruan",
       "is_active": false,
+      "block_count": 5,
+      "portfolio_count": 120,
       "created_at": "2025-12-01T10:00:00Z"
     }
   ],
@@ -3113,19 +3236,114 @@ Daftar semua series (termasuk yang tidak aktif).
 
 ---
 
+### GET /admin/series/{id}
+
+Detail series dengan blocks template.
+
+**Authentication:** Required (admin only)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID series |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "series-uuid-1",
+    "nama": "PJBL Semester 1 2024",
+    "deskripsi": "Template untuk proyek PJBL semester 1 tahun ajaran 2024/2025",
+    "is_active": true,
+    "blocks": [
+      {
+        "id": "block-uuid-1",
+        "block_type": "text",
+        "block_order": 0,
+        "instruksi": "Judul dan deskripsi singkat proyek"
+      },
+      {
+        "id": "block-uuid-2",
+        "block_type": "image",
+        "block_order": 1,
+        "instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
+      },
+      {
+        "id": "block-uuid-3",
+        "block_type": "youtube",
+        "block_order": 2,
+        "instruksi": "Video dokumentasi presentasi PJBL"
+      }
+    ],
+    "portfolio_count": 25,
+    "created_at": "2025-12-01T10:00:00Z"
+  }
+}
+```
+
+**Error Response:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "SERIES_NOT_FOUND",
+    "message": "Series tidak ditemukan"
+  }
+}
+```
+
+---
+
 ### POST /admin/series
 
-Buat series baru.
+Buat series baru dengan blocks template.
 
 **Authentication:** Required (admin only)
 
 **Request Body:**
 ```json
 {
-  "nama": "PJBL Semester 2",
-  "is_active": true
+  "nama": "PJBL Semester 2 2024",
+  "deskripsi": "Template untuk proyek PJBL semester 2 tahun ajaran 2024/2025",
+  "is_active": true,
+  "blocks": [
+    {
+      "block_type": "text",
+      "instruksi": "Judul dan deskripsi singkat proyek"
+    },
+    {
+      "block_type": "image",
+      "instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
+    },
+    {
+      "block_type": "youtube",
+      "instruksi": "Video dokumentasi presentasi PJBL"
+    },
+    {
+      "block_type": "text",
+      "instruksi": "Tujuan pembuatan proyek"
+    },
+    {
+      "block_type": "text",
+      "instruksi": "Proses pengerjaan"
+    },
+    {
+      "block_type": "image",
+      "instruksi": "Screenshot hasil akhir"
+    },
+    {
+      "block_type": "text",
+      "instruksi": "Kesimpulan dan pembelajaran"
+    }
+  ]
 }
 ```
+
+**Valid Block Types:**
+`text`, `image`, `youtube`, `table`, `button`, `embed`
 
 **Success Response (201):**
 ```json
@@ -3133,15 +3351,31 @@ Buat series baru.
   "success": true,
   "data": {
     "id": "series-uuid-3",
-    "nama": "PJBL Semester 2",
+    "nama": "PJBL Semester 2 2024",
+    "deskripsi": "Template untuk proyek PJBL semester 2 tahun ajaran 2024/2025",
     "is_active": true,
+    "blocks": [
+      {
+        "id": "block-uuid-1",
+        "block_type": "text",
+        "block_order": 0,
+        "instruksi": "Judul dan deskripsi singkat proyek"
+      },
+      {
+        "id": "block-uuid-2",
+        "block_type": "image",
+        "block_order": 1,
+        "instruksi": "Thumbnail/cover proyek (rasio 16:9 recommended)"
+      }
+    ],
+    "portfolio_count": 0,
     "created_at": "2025-12-09T10:00:00Z"
   },
   "message": "Series berhasil dibuat"
 }
 ```
 
-**Error Response:**
+**Error Responses:**
 
 `409 Conflict`:
 ```json
@@ -3154,21 +3388,56 @@ Buat series baru.
 }
 ```
 
+`422 Unprocessable Entity`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validasi gagal",
+    "details": [
+      {
+        "field": "blocks",
+        "message": "Series harus memiliki minimal 1 block"
+      }
+    ]
+  }
+}
+```
+
 ---
 
 ### PATCH /admin/series/{id}
 
-Update series (nama dan/atau status aktif).
+Update series (nama, deskripsi, status aktif, dan/atau blocks).
 
 **Authentication:** Required (admin only)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID series |
 
 **Request Body:**
 ```json
 {
-  "nama": "PJBL Semester 2 - Updated",
-  "is_active": false
+  "nama": "PJBL Semester 2 2024 - Updated",
+  "deskripsi": "Deskripsi yang diperbarui",
+  "is_active": false,
+  "blocks": [
+    {
+      "block_type": "text",
+      "instruksi": "Judul dan deskripsi singkat proyek (updated)"
+    },
+    {
+      "block_type": "image",
+      "instruksi": "Thumbnail/cover proyek"
+    }
+  ]
 }
 ```
+
+**Note:** Jika `blocks` disertakan, semua blocks lama akan dihapus dan diganti dengan blocks baru. Jika `blocks` tidak disertakan, blocks tidak berubah.
 
 **Success Response (200):**
 ```json
@@ -3176,8 +3445,24 @@ Update series (nama dan/atau status aktif).
   "success": true,
   "data": {
     "id": "series-uuid-3",
-    "nama": "PJBL Semester 2 - Updated",
+    "nama": "PJBL Semester 2 2024 - Updated",
+    "deskripsi": "Deskripsi yang diperbarui",
     "is_active": false,
+    "blocks": [
+      {
+        "id": "block-uuid-new-1",
+        "block_type": "text",
+        "block_order": 0,
+        "instruksi": "Judul dan deskripsi singkat proyek (updated)"
+      },
+      {
+        "id": "block-uuid-new-2",
+        "block_type": "image",
+        "block_order": 1,
+        "instruksi": "Thumbnail/cover proyek"
+      }
+    ],
+    "portfolio_count": 0,
     "created_at": "2025-12-09T10:00:00Z"
   },
   "message": "Series berhasil diperbarui"
@@ -3188,9 +3473,14 @@ Update series (nama dan/atau status aktif).
 
 ### DELETE /admin/series/{id}
 
-Hapus series (soft delete).
+Hapus series (soft delete). Portfolio yang menggunakan series ini akan tetap ada dengan `series_id = NULL`.
 
 **Authentication:** Required (admin only)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID series |
 
 **Success Response (200):**
 ```json

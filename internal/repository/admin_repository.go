@@ -250,7 +250,9 @@ func (r *AdminRepository) ListSeries(search string, page, limit int) ([]domain.S
 	query.Count(&total)
 
 	offset := (page - 1) * limit
-	err := query.Order("nama ASC").Offset(offset).Limit(limit).Find(&series).Error
+	err := query.Preload("Blocks", func(db *gorm.DB) *gorm.DB {
+		return db.Order("block_order ASC")
+	}).Order("nama ASC").Offset(offset).Limit(limit).Find(&series).Error
 
 	return series, total, err
 }
@@ -261,7 +263,9 @@ func (r *AdminRepository) CreateSeries(series *domain.Series) error {
 
 func (r *AdminRepository) FindSeriesByID(id uuid.UUID) (*domain.Series, error) {
 	var series domain.Series
-	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&series).Error
+	err := r.db.Preload("Blocks", func(db *gorm.DB) *gorm.DB {
+		return db.Order("block_order ASC")
+	}).Where("id = ? AND deleted_at IS NULL", id).First(&series).Error
 	return &series, err
 }
 
@@ -275,7 +279,9 @@ func (r *AdminRepository) DeleteSeries(id uuid.UUID) error {
 
 func (r *AdminRepository) ListActiveSeries() ([]domain.Series, error) {
 	var series []domain.Series
-	err := r.db.Where("deleted_at IS NULL AND is_active = true").Order("nama ASC").Find(&series).Error
+	err := r.db.Preload("Blocks", func(db *gorm.DB) *gorm.DB {
+		return db.Order("block_order ASC")
+	}).Where("deleted_at IS NULL AND is_active = true").Order("nama ASC").Find(&series).Error
 	return series, err
 }
 
@@ -291,8 +297,29 @@ func (r *AdminRepository) SeriesNameExists(nama string, excludeID *uuid.UUID) (b
 
 func (r *AdminRepository) GetSeriesPortfolioCount(id uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.Model(&domain.PortfolioSeries{}).Where("series_id = ?", id).Count(&count).Error
+	err := r.db.Model(&domain.Portfolio{}).Where("series_id = ? AND deleted_at IS NULL", id).Count(&count).Error
 	return count, err
+}
+
+// UpdateSeriesBlocks replaces all blocks for a series
+func (r *AdminRepository) UpdateSeriesBlocks(seriesID uuid.UUID, blocks []domain.SeriesBlock) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Delete existing blocks
+		if err := tx.Where("series_id = ?", seriesID).Delete(&domain.SeriesBlock{}).Error; err != nil {
+			return err
+		}
+		// Insert new blocks
+		if len(blocks) > 0 {
+			for i := range blocks {
+				blocks[i].SeriesID = seriesID
+				blocks[i].BlockOrder = i
+			}
+			if err := tx.Create(&blocks).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Admin Users

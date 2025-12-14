@@ -126,14 +126,29 @@ type Tag struct {
 
 func (Tag) TableName() string { return "tags" }
 
-// Series (untuk kategorisasi berdasarkan event/tema)
+// Series - Template portofolio dengan block konten yang sudah ditentukan
 type Series struct {
 	BaseModel
-	Nama     string `gorm:"type:varchar(100);not null;uniqueIndex" json:"nama"`
-	IsActive bool   `gorm:"not null;default:true" json:"is_active"`
+	Nama      string        `gorm:"type:varchar(100);not null;uniqueIndex" json:"nama"`
+	Deskripsi *string       `gorm:"type:text" json:"deskripsi,omitempty"`
+	IsActive  bool          `gorm:"not null;default:true" json:"is_active"`
+	Blocks    []SeriesBlock `gorm:"foreignKey:SeriesID" json:"blocks,omitempty"`
 }
 
 func (Series) TableName() string { return "series" }
+
+// SeriesBlock - Template block konten untuk series
+type SeriesBlock struct {
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	SeriesID   uuid.UUID        `gorm:"type:uuid;not null" json:"series_id"`
+	BlockType  ContentBlockType `gorm:"type:content_block_type;not null" json:"block_type"`
+	BlockOrder int              `gorm:"not null" json:"block_order"`
+	Instruksi  string           `gorm:"type:text;not null" json:"instruksi"`
+	CreatedAt  time.Time        `gorm:"not null;default:now()" json:"created_at"`
+	UpdatedAt  time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+}
+
+func (SeriesBlock) TableName() string { return "series_blocks" }
 
 // User
 type User struct {
@@ -240,10 +255,11 @@ type Portfolio struct {
 	ReviewedBy      *uuid.UUID      `gorm:"type:uuid" json:"reviewed_by,omitempty"`
 	ReviewedAt      *time.Time      `json:"reviewed_at,omitempty"`
 	PublishedAt     *time.Time      `json:"published_at,omitempty"`
+	SeriesID        *uuid.UUID      `gorm:"type:uuid" json:"series_id,omitempty"`
 	User            *User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Reviewer        *User           `gorm:"foreignKey:ReviewedBy" json:"reviewer,omitempty"`
+	Series          *Series         `gorm:"foreignKey:SeriesID" json:"series,omitempty"`
 	Tags            []Tag           `gorm:"many2many:portfolio_tags" json:"tags,omitempty"`
-	Series          []Series        `gorm:"many2many:portfolio_series" json:"series,omitempty"`
 	ContentBlocks   []ContentBlock  `gorm:"foreignKey:PortfolioID" json:"content_blocks,omitempty"`
 }
 
@@ -257,15 +273,6 @@ type PortfolioTag struct {
 }
 
 func (PortfolioTag) TableName() string { return "portfolio_tags" }
-
-// PortfolioSeries (junction table)
-type PortfolioSeries struct {
-	PortfolioID uuid.UUID `gorm:"type:uuid;primaryKey" json:"portfolio_id"`
-	SeriesID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"series_id"`
-	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
-}
-
-func (PortfolioSeries) TableName() string { return "portfolio_series" }
 
 // ContentBlock
 type ContentBlock struct {

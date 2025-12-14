@@ -164,6 +164,7 @@ func main() {
 	api.Get("/jurusan", publicHandler.ListJurusan)
 	api.Get("/kelas", publicHandler.ListKelas)
 	api.Get("/series", publicHandler.ListSeries)
+	api.Get("/series/:id", publicHandler.GetSeries)
 
 	// Feed route
 	api.Get("/feed", authMiddleware.Required(), feedHandler.GetFeed)
@@ -221,6 +222,7 @@ func main() {
 
 	// Admin - Series (requires series capability)
 	adminRoutes.Get("/series", capMiddleware.RequireCapability("series"), adminHandler.ListSeries)
+	adminRoutes.Get("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.GetSeries)
 	adminRoutes.Post("/series", capMiddleware.RequireCapability("series"), adminHandler.CreateSeries)
 	adminRoutes.Patch("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.UpdateSeries)
 	adminRoutes.Delete("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.DeleteSeries)
