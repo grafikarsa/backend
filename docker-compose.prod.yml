@@ -1,0 +1,105 @@
+# =============================================================================
+# GRAFIKARSA BACKEND - PRODUCTION DOCKER COMPOSE
+# =============================================================================
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+#
+# Untuk build lokal: docker-compose -f docker-compose.prod.yml up -d --build
+# Untuk pakai Docker Hub: set IMAGE_TAG di .env atau gunakan default
+# =============================================================================
+
+services:
+  api:
+    # Gunakan image dari Docker Hub (ganti dengan username kamu)
+    image: ${DOCKER_IMAGE:-rafapradana/grafikarsa-api}:${IMAGE_TAG:-latest}
+    # Atau uncomment ini untuk build lokal:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - grafikarsa-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - grafikarsa-network
+    restart: always
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - grafikarsa-network
+    restart: always
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set myminio http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+      /usr/bin/mc mb myminio/$${MINIO_BUCKET} --ignore-existing;
+      /usr/bin/mc anonymous set public myminio/$${MINIO_BUCKET};
+      exit 0;
+      "
+    networks:
+      - grafikarsa-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  grafikarsa-network:
+    driver: bridge

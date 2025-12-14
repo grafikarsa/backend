@@ -65,12 +65,13 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, portfolioRepo, notificationService)
 	uploadHandler := handler.NewUploadHandler(minioClient, userRepo, portfolioRepo)
 	tagHandler := handler.NewTagHandler(adminRepo)
-	publicHandler := handler.NewPublicHandler(adminRepo)
+	publicHandler := handler.NewPublicHandler(adminRepo, userRepo)
 	feedHandler := handler.NewFeedHandler(portfolioRepo, followRepo)
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo)
 	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
 	notificationHandler := handler.NewNotificationHandler(notificationRepo)
+	importHandler := handler.NewImportHandler(adminRepo, userRepo)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -165,6 +166,8 @@ func main() {
 	api.Get("/kelas", publicHandler.ListKelas)
 	api.Get("/series", publicHandler.ListSeries)
 	api.Get("/series/:id", publicHandler.GetSeries)
+	api.Get("/top-students", publicHandler.GetTopStudents)
+	api.Get("/top-projects", publicHandler.GetTopProjects)
 
 	// Feed route
 	api.Get("/feed", authMiddleware.Required(), feedHandler.GetFeed)
@@ -226,6 +229,8 @@ func main() {
 	adminRoutes.Post("/series", capMiddleware.RequireCapability("series"), adminHandler.CreateSeries)
 	adminRoutes.Patch("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.UpdateSeries)
 	adminRoutes.Delete("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.DeleteSeries)
+	adminRoutes.Get("/series/:id/export/preview", capMiddleware.RequireCapability("series"), adminHandler.GetSeriesExportPreview)
+	adminRoutes.Get("/series/:id/export", capMiddleware.RequireCapability("series"), adminHandler.GetSeriesExportData)
 
 	// Admin - Users (requires users capability)
 	adminRoutes.Get("/users", capMiddleware.RequireCapability("users"), adminHandler.ListUsers)
@@ -242,6 +247,10 @@ func main() {
 	// Admin - User Special Roles (requires users capability)
 	adminRoutes.Get("/users/:id/special-roles", capMiddleware.RequireCapability("users"), adminHandler.GetUserSpecialRoles)
 	adminRoutes.Put("/users/:id/special-roles", capMiddleware.RequireCapability("users"), adminHandler.UpdateUserSpecialRoles)
+
+	// Admin - Import Students (requires users capability)
+	adminRoutes.Post("/import/students", capMiddleware.RequireCapability("users"), importHandler.ImportStudents)
+	adminRoutes.Get("/import/students/template", capMiddleware.RequireCapability("users"), importHandler.DownloadTemplate)
 
 	// Admin - Portfolios (requires portfolios capability)
 	adminRoutes.Get("/portfolios", capMiddleware.RequireCapability("portfolios"), adminHandler.ListAllPortfolios)
@@ -301,8 +310,8 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Printf("Server starting on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
+	log.Printf("Server starting on 0.0.0.0:%s", port)
+	if err := app.Listen("0.0.0.0:" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

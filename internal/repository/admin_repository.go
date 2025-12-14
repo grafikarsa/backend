@@ -639,3 +639,141 @@ func (r *AdminRepository) GetActiveSpecialRoles() ([]domain.SpecialRole, error) 
 	err := r.db.Where("deleted_at IS NULL AND is_active = true").Order("nama ASC").Find(&roles).Error
 	return roles, err
 }
+
+// ============================================================================
+// SERIES EXPORT METHODS
+// ============================================================================
+
+// GetPortfoliosForExport returns published portfolios for a series with full user data
+func (r *AdminRepository) GetPortfoliosForExport(seriesID uuid.UUID, jurusanID, kelasID *uuid.UUID) ([]domain.Portfolio, error) {
+	var portfolios []domain.Portfolio
+
+	query := r.db.Model(&domain.Portfolio{}).
+		Joins("JOIN users ON portfolios.user_id = users.id").
+		Where("portfolios.series_id = ? AND portfolios.status = 'published' AND portfolios.deleted_at IS NULL AND users.deleted_at IS NULL", seriesID)
+
+	// Filter by kelas or jurusan
+	if kelasID != nil {
+		query = query.Where("users.kelas_id = ?", *kelasID)
+	} else if jurusanID != nil {
+		query = query.Joins("JOIN kelas ON users.kelas_id = kelas.id").
+			Where("kelas.jurusan_id = ?", *jurusanID)
+	}
+
+	err := query.
+		Preload("User.Kelas.Jurusan").
+		Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
+			return db.Order("block_order ASC")
+		}).
+		Order("users.nama ASC, portfolios.created_at DESC").
+		Find(&portfolios).Error
+
+	return portfolios, err
+}
+
+// CountPortfoliosForExport returns count of portfolios for export preview
+func (r *AdminRepository) CountPortfoliosForExport(seriesID uuid.UUID, jurusanID, kelasID *uuid.UUID) (portfolioCount int64, userCount int64, err error) {
+	query := r.db.Model(&domain.Portfolio{}).
+		Joins("JOIN users ON portfolios.user_id = users.id").
+		Where("portfolios.series_id = ? AND portfolios.status = 'published' AND portfolios.deleted_at IS NULL AND users.deleted_at IS NULL", seriesID)
+
+	if kelasID != nil {
+		query = query.Where("users.kelas_id = ?", *kelasID)
+	} else if jurusanID != nil {
+		query = query.Joins("JOIN kelas ON users.kelas_id = kelas.id").
+			Where("kelas.jurusan_id = ?", *jurusanID)
+	}
+
+	query.Count(&portfolioCount)
+
+	// Count unique users
+	userQuery := r.db.Model(&domain.Portfolio{}).
+		Select("COUNT(DISTINCT portfolios.user_id)").
+		Joins("JOIN users ON portfolios.user_id = users.id").
+		Where("portfolios.series_id = ? AND portfolios.status = 'published' AND portfolios.deleted_at IS NULL AND users.deleted_at IS NULL", seriesID)
+
+	if kelasID != nil {
+		userQuery = userQuery.Where("users.kelas_id = ?", *kelasID)
+	} else if jurusanID != nil {
+		userQuery = userQuery.Joins("JOIN kelas ON users.kelas_id = kelas.id").
+			Where("kelas.jurusan_id = ?", *jurusanID)
+	}
+
+	userQuery.Scan(&userCount)
+
+	return portfolioCount, userCount, nil
+}
+
+// ============================================================================
+// STUDENT IMPORT METHODS
+// ============================================================================
+
+// GetActiveTahunAjaran returns the currently active tahun ajaran
+func (r *AdminRepository) GetActiveTahunAjaran() (*domain.TahunAjaran, error) {
+	var ta domain.TahunAjaran
+	err := r.db.Where("is_active = true AND deleted_at IS NULL").First(&ta).Error
+	return &ta, err
+}
+
+// FindJurusanByKode finds a jurusan by its kode
+func (r *AdminRepository) FindJurusanByKode(kode string) (*domain.Jurusan, error) {
+	var jurusan domain.Jurusan
+	err := r.db.Where("LOWER(kode) = LOWER(?) AND deleted_at IS NULL", kode).First(&jurusan).Error
+	return &jurusan, err
+}
+
+// FindKelasByTingkatJurusanRombel finds a kelas by tingkat, jurusan, and rombel
+func (r *AdminRepository) FindKelasByTingkatJurusanRombel(tahunAjaranID, jurusanID uuid.UUID, tingkat int, rombel string) (*domain.Kelas, error) {
+	var kelas domain.Kelas
+	err := r.db.Where("tahun_ajaran_id = ? AND jurusan_id = ? AND tingkat = ? AND UPPER(rombel) = UPPER(?) AND deleted_at IS NULL",
+		tahunAjaranID, jurusanID, tingkat, rombel).First(&kelas).Error
+	return &kelas, err
+}
+
+// FindExistingNIS returns list of NIS that already exist in database
+func (r *AdminRepository) FindExistingNIS(nisList []string) ([]string, error) {
+	var existingNIS []string
+	err := r.db.Model(&domain.User{}).
+		Where("nis IN ? AND deleted_at IS NULL", nisList).
+		Pluck("nis", &existingNIS).Error
+	return existingNIS, err
+}
+
+// FindExistingUsernames returns list of usernames that already exist in database
+func (r *AdminRepository) FindExistingUsernames(usernames []string) ([]string, error) {
+	var existing []string
+	err := r.db.Model(&domain.User{}).
+		Where("username IN ? AND deleted_at IS NULL", usernames).
+		Pluck("username", &existing).Error
+	return existing, err
+}
+
+// BulkCreateStudents creates multiple students in a transaction
+func (r *AdminRepository) BulkCreateStudents(students []domain.User) (int, error) {
+	created := 0
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		for _, student := range students {
+			if err := tx.Create(&student).Error; err != nil {
+				return err
+			}
+			created++
+		}
+		return nil
+	})
+	return created, err
+}
+
+// BulkCreateKelas creates multiple kelas in a transaction
+func (r *AdminRepository) BulkCreateKelas(kelasList []domain.Kelas) ([]domain.Kelas, error) {
+	var created []domain.Kelas
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		for _, kelas := range kelasList {
+			if err := tx.Create(&kelas).Error; err != nil {
+				return err
+			}
+			created = append(created, kelas)
+		}
+		return nil
+	})
+	return created, err
+}

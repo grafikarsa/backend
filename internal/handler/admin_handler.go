@@ -1774,3 +1774,138 @@ func (h *AdminHandler) GetActiveSpecialRoles(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse(result, ""))
 }
+
+// ============================================================================
+// SERIES EXPORT HANDLERS
+// ============================================================================
+
+// GetSeriesExportPreview returns preview info before export
+func (h *AdminHandler) GetSeriesExportPreview(c *fiber.Ctx) error {
+	seriesID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	// Check series exists
+	_, err = h.adminRepo.FindSeriesByID(seriesID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("SERIES_NOT_FOUND", "Series tidak ditemukan"))
+	}
+
+	var jurusanID, kelasID *uuid.UUID
+	if id := c.Query("jurusan_id"); id != "" {
+		parsed, _ := uuid.Parse(id)
+		jurusanID = &parsed
+	}
+	if id := c.Query("kelas_id"); id != "" {
+		parsed, _ := uuid.Parse(id)
+		kelasID = &parsed
+	}
+
+	portfolioCount, userCount, err := h.adminRepo.CountPortfoliosForExport(seriesID, jurusanID, kelasID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menghitung data export"))
+	}
+
+	// Estimate pages (roughly 2 pages per portfolio)
+	estimatedPages := portfolioCount * 2
+
+	return c.JSON(dto.SuccessResponse(dto.ExportPreviewResponse{
+		PortfolioCount: portfolioCount,
+		UserCount:      userCount,
+		EstimatedPages: estimatedPages,
+	}, ""))
+}
+
+// GetSeriesExportData returns full data for PDF export
+func (h *AdminHandler) GetSeriesExportData(c *fiber.Ctx) error {
+	seriesID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	// Get series with blocks
+	series, err := h.adminRepo.FindSeriesByID(seriesID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("SERIES_NOT_FOUND", "Series tidak ditemukan"))
+	}
+
+	var jurusanID, kelasID *uuid.UUID
+	if id := c.Query("jurusan_id"); id != "" {
+		parsed, _ := uuid.Parse(id)
+		jurusanID = &parsed
+	}
+	if id := c.Query("kelas_id"); id != "" {
+		parsed, _ := uuid.Parse(id)
+		kelasID = &parsed
+	}
+
+	// Get portfolios
+	portfolios, err := h.adminRepo.GetPortfoliosForExport(seriesID, jurusanID, kelasID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data portfolio"))
+	}
+
+	// Build response
+	var portfolioDTOs []dto.PortfolioExportDTO
+	for _, p := range portfolios {
+		userDTO := dto.PortfolioExportUserDTO{
+			ID:       p.User.ID,
+			Nama:     p.User.Nama,
+			Username: p.User.Username,
+		}
+		if p.User.AvatarURL != nil {
+			userDTO.AvatarURL = p.User.AvatarURL
+		}
+		if p.User.NISN != nil {
+			userDTO.NISN = p.User.NISN
+		}
+		if p.User.NIS != nil {
+			userDTO.NIS = p.User.NIS
+		}
+		if p.User.Kelas != nil {
+			userDTO.KelasNama = &p.User.Kelas.Nama
+			if p.User.Kelas.Jurusan != nil {
+				userDTO.JurusanNama = &p.User.Kelas.Jurusan.Nama
+			}
+		}
+
+		var blocks []dto.ContentBlockDTO
+		for _, b := range p.ContentBlocks {
+			blocks = append(blocks, dto.ContentBlockDTO{
+				ID:         b.ID,
+				BlockType:  string(b.BlockType),
+				BlockOrder: b.BlockOrder,
+				Payload:    b.Payload,
+			})
+		}
+
+		portfolioDTOs = append(portfolioDTOs, dto.PortfolioExportDTO{
+			ID:            p.ID,
+			Judul:         p.Judul,
+			ThumbnailURL:  p.ThumbnailURL,
+			CreatedAt:     p.CreatedAt,
+			ContentBlocks: blocks,
+			User:          userDTO,
+		})
+	}
+
+	portfolioCount, userCount, _ := h.adminRepo.CountPortfoliosForExport(seriesID, jurusanID, kelasID)
+
+	return c.JSON(dto.SuccessResponse(dto.SeriesExportResponse{
+		Series: dto.SeriesDetailDTO{
+			ID:        series.ID,
+			Nama:      series.Nama,
+			Deskripsi: series.Deskripsi,
+			IsActive:  series.IsActive,
+			Blocks:    dto.SeriesBlocksToDTOs(series.Blocks),
+			CreatedAt: series.CreatedAt,
+		},
+		Portfolios: portfolioDTOs,
+		Meta: dto.ExportMeta{
+			TotalCount: portfolioCount,
+			UserCount:  userCount,
+			ExportedAt: time.Now(),
+		},
+	}, ""))
+}

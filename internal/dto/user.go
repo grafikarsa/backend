@@ -8,13 +8,16 @@ import (
 
 // User List Item
 type UserListDTO struct {
-	ID        uuid.UUID   `json:"id"`
-	Username  string      `json:"username"`
-	Nama      string      `json:"nama"`
-	AvatarURL *string     `json:"avatar_url,omitempty"`
-	Role      string      `json:"role"`
-	Kelas     *KelasDTO   `json:"kelas,omitempty"`
-	Jurusan   *JurusanDTO `json:"jurusan,omitempty"`
+	ID         uuid.UUID   `json:"id"`
+	Username   string      `json:"username"`
+	Nama       string      `json:"nama"`
+	AvatarURL  *string     `json:"avatar_url,omitempty"`
+	BannerURL  *string     `json:"banner_url,omitempty"`
+	Role       string      `json:"role"`
+	TahunMasuk *int        `json:"tahun_masuk,omitempty"`
+	TahunLulus *int        `json:"tahun_lulus,omitempty"`
+	Kelas      *KelasDTO   `json:"kelas,omitempty"`
+	Jurusan    *JurusanDTO `json:"jurusan,omitempty"`
 }
 
 // User Detail

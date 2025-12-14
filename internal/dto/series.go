@@ -86,3 +86,50 @@ func SeriesBlocksToDTOs(blocks []domain.SeriesBlock) []SeriesBlockDTO {
 	}
 	return result
 }
+
+// ============================================================================
+// EXPORT DTOs
+// ============================================================================
+
+// PortfolioExportUserDTO - user data for export
+type PortfolioExportUserDTO struct {
+	ID          uuid.UUID `json:"id"`
+	Nama        string    `json:"nama"`
+	Username    string    `json:"username"`
+	AvatarURL   *string   `json:"avatar_url,omitempty"`
+	NISN        *string   `json:"nisn,omitempty"`
+	NIS         *string   `json:"nis,omitempty"`
+	KelasNama   *string   `json:"kelas_nama,omitempty"`
+	JurusanNama *string   `json:"jurusan_nama,omitempty"`
+}
+
+// PortfolioExportDTO - portfolio data for export
+type PortfolioExportDTO struct {
+	ID            uuid.UUID              `json:"id"`
+	Judul         string                 `json:"judul"`
+	ThumbnailURL  *string                `json:"thumbnail_url,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	ContentBlocks []ContentBlockDTO      `json:"content_blocks"`
+	User          PortfolioExportUserDTO `json:"user"`
+}
+
+// SeriesExportResponse - response for export endpoint
+type SeriesExportResponse struct {
+	Series     SeriesDetailDTO      `json:"series"`
+	Portfolios []PortfolioExportDTO `json:"portfolios"`
+	Meta       ExportMeta           `json:"meta"`
+}
+
+// ExportMeta - metadata for export
+type ExportMeta struct {
+	TotalCount int64     `json:"total_count"`
+	UserCount  int64     `json:"user_count"`
+	ExportedAt time.Time `json:"exported_at"`
+}
+
+// ExportPreviewResponse - preview before export
+type ExportPreviewResponse struct {
+	PortfolioCount int64 `json:"portfolio_count"`
+	UserCount      int64 `json:"user_count"`
+	EstimatedPages int64 `json:"estimated_pages"`
+}

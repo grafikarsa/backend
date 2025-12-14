@@ -58,16 +58,19 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 	var userDTOs []dto.UserListDTO
 	for _, u := range users {
 		userDTO := dto.UserListDTO{
-			ID:        u.ID,
-			Username:  u.Username,
-			Nama:      u.Nama,
-			AvatarURL: u.AvatarURL,
-			Role:      string(u.Role),
+			ID:         u.ID,
+			Username:   u.Username,
+			Nama:       u.Nama,
+			AvatarURL:  u.AvatarURL,
+			BannerURL:  u.BannerURL,
+			Role:       string(u.Role),
+			TahunMasuk: u.TahunMasuk,
+			TahunLulus: u.TahunLulus,
 		}
 		if u.Kelas != nil {
 			userDTO.Kelas = &dto.KelasDTO{ID: u.Kelas.ID, Nama: u.Kelas.Nama}
 			if u.Kelas.Jurusan != nil {
-				userDTO.Jurusan = &dto.JurusanDTO{ID: u.Kelas.Jurusan.ID, Nama: u.Kelas.Jurusan.Nama}
+				userDTO.Jurusan = &dto.JurusanDTO{ID: u.Kelas.Jurusan.ID, Nama: u.Kelas.Jurusan.Nama, Kode: u.Kelas.Jurusan.Kode}
 			}
 		}
 		userDTOs = append(userDTOs, userDTO)

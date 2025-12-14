@@ -11,10 +11,11 @@ import (
 
 type PublicHandler struct {
 	adminRepo *repository.AdminRepository
+	userRepo  *repository.UserRepository
 }
 
-func NewPublicHandler(adminRepo *repository.AdminRepository) *PublicHandler {
-	return &PublicHandler{adminRepo: adminRepo}
+func NewPublicHandler(adminRepo *repository.AdminRepository, userRepo *repository.UserRepository) *PublicHandler {
+	return &PublicHandler{adminRepo: adminRepo, userRepo: userRepo}
 }
 
 func (h *PublicHandler) ListJurusan(c *fiber.Ctx) error {
@@ -103,4 +104,22 @@ func (h *PublicHandler) GetSeries(c *fiber.Ctx) error {
 		BlockCount: len(series.Blocks),
 		Blocks:     dto.SeriesBlocksToDTOs(series.Blocks),
 	}, ""))
+}
+
+func (h *PublicHandler) GetTopStudents(c *fiber.Ctx) error {
+	students, err := h.userRepo.GetTopStudents(3)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data top students"))
+	}
+
+	return c.JSON(dto.SuccessResponse(students, ""))
+}
+
+func (h *PublicHandler) GetTopProjects(c *fiber.Ctx) error {
+	projects, err := h.userRepo.GetTopProjects(3)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data top projects"))
+	}
+
+	return c.JSON(dto.SuccessResponse(projects, ""))
 }
