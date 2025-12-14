@@ -236,6 +236,65 @@ func (r *AdminRepository) GetTagPortfolioCount(id uuid.UUID) (int64, error) {
 	return count, err
 }
 
+// Series CRUD
+func (r *AdminRepository) ListSeries(search string, page, limit int) ([]domain.Series, int64, error) {
+	var series []domain.Series
+	var total int64
+
+	query := r.db.Model(&domain.Series{}).Where("deleted_at IS NULL")
+
+	if search != "" {
+		query = query.Where("nama ILIKE ?", "%"+search+"%")
+	}
+
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	err := query.Order("nama ASC").Offset(offset).Limit(limit).Find(&series).Error
+
+	return series, total, err
+}
+
+func (r *AdminRepository) CreateSeries(series *domain.Series) error {
+	return r.db.Create(series).Error
+}
+
+func (r *AdminRepository) FindSeriesByID(id uuid.UUID) (*domain.Series, error) {
+	var series domain.Series
+	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&series).Error
+	return &series, err
+}
+
+func (r *AdminRepository) UpdateSeries(series *domain.Series) error {
+	return r.db.Save(series).Error
+}
+
+func (r *AdminRepository) DeleteSeries(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&domain.Series{}).Error
+}
+
+func (r *AdminRepository) ListActiveSeries() ([]domain.Series, error) {
+	var series []domain.Series
+	err := r.db.Where("deleted_at IS NULL AND is_active = true").Order("nama ASC").Find(&series).Error
+	return series, err
+}
+
+func (r *AdminRepository) SeriesNameExists(nama string, excludeID *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&domain.Series{}).Where("nama = ? AND deleted_at IS NULL", nama)
+	if excludeID != nil {
+		query = query.Where("id != ?", *excludeID)
+	}
+	err := query.Count(&count).Error
+	return count > 0, err
+}
+
+func (r *AdminRepository) GetSeriesPortfolioCount(id uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.PortfolioSeries{}).Where("series_id = ?", id).Count(&count).Error
+	return count, err
+}
+
 // Admin Users
 func (r *AdminRepository) ListUsers(search string, role *string, kelasID, jurusanID *uuid.UUID, isActive *bool, page, limit int) ([]domain.User, int64, error) {
 	var users []domain.User
@@ -370,4 +429,186 @@ func (r *AdminRepository) GetRecentPendingPortfolios(limit int) ([]domain.Portfo
 		Limit(limit).
 		Find(&portfolios).Error
 	return portfolios, err
+}
+
+// ============================================================================
+// SPECIAL ROLE METHODS
+// ============================================================================
+
+// ListSpecialRoles returns all special roles with user count
+func (r *AdminRepository) ListSpecialRoles(search string, includeInactive bool) ([]domain.SpecialRole, error) {
+	var roles []domain.SpecialRole
+	query := r.db.Where("deleted_at IS NULL")
+
+	if search != "" {
+		query = query.Where("nama ILIKE ?", "%"+search+"%")
+	}
+	if !includeInactive {
+		query = query.Where("is_active = true")
+	}
+
+	err := query.Order("nama ASC").Find(&roles).Error
+	return roles, err
+}
+
+// CreateSpecialRole creates a new special role
+func (r *AdminRepository) CreateSpecialRole(role *domain.SpecialRole) error {
+	return r.db.Create(role).Error
+}
+
+// FindSpecialRoleByID finds a special role by ID
+func (r *AdminRepository) FindSpecialRoleByID(id uuid.UUID) (*domain.SpecialRole, error) {
+	var role domain.SpecialRole
+	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&role).Error
+	return &role, err
+}
+
+// UpdateSpecialRole updates a special role
+func (r *AdminRepository) UpdateSpecialRole(role *domain.SpecialRole) error {
+	return r.db.Save(role).Error
+}
+
+// DeleteSpecialRole soft deletes a special role
+func (r *AdminRepository) DeleteSpecialRole(id uuid.UUID) error {
+	return r.db.Where("id = ?", id).Delete(&domain.SpecialRole{}).Error
+}
+
+// SpecialRoleNameExists checks if a special role name already exists
+func (r *AdminRepository) SpecialRoleNameExists(nama string, excludeID *uuid.UUID) (bool, error) {
+	var count int64
+	query := r.db.Model(&domain.SpecialRole{}).Where("nama = ? AND deleted_at IS NULL", nama)
+	if excludeID != nil {
+		query = query.Where("id != ?", *excludeID)
+	}
+	err := query.Count(&count).Error
+	return count > 0, err
+}
+
+// GetSpecialRoleUserCount returns the number of users assigned to a special role
+func (r *AdminRepository) GetSpecialRoleUserCount(roleID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.UserSpecialRole{}).Where("special_role_id = ?", roleID).Count(&count).Error
+	return count, err
+}
+
+// GetSpecialRoleUsers returns users assigned to a special role
+func (r *AdminRepository) GetSpecialRoleUsers(roleID uuid.UUID) ([]domain.UserSpecialRole, error) {
+	var userRoles []domain.UserSpecialRole
+	err := r.db.Preload("User.Kelas").
+		Where("special_role_id = ?", roleID).
+		Order("assigned_at DESC").
+		Find(&userRoles).Error
+	return userRoles, err
+}
+
+// AssignUsersToRole assigns multiple users to a special role
+func (r *AdminRepository) AssignUsersToRole(roleID uuid.UUID, userIDs []uuid.UUID, assignedBy uuid.UUID) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, userID := range userIDs {
+			// Check if already assigned
+			var count int64
+			tx.Model(&domain.UserSpecialRole{}).
+				Where("user_id = ? AND special_role_id = ?", userID, roleID).
+				Count(&count)
+			if count > 0 {
+				continue // Skip if already assigned
+			}
+
+			userRole := &domain.UserSpecialRole{
+				UserID:        userID,
+				SpecialRoleID: roleID,
+				AssignedBy:    &assignedBy,
+				AssignedAt:    time.Now(),
+			}
+			if err := tx.Create(userRole).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// RemoveUserFromRole removes a user from a special role
+func (r *AdminRepository) RemoveUserFromRole(roleID, userID uuid.UUID) error {
+	return r.db.Where("special_role_id = ? AND user_id = ?", roleID, userID).
+		Delete(&domain.UserSpecialRole{}).Error
+}
+
+// GetUserSpecialRoles returns all special roles for a user
+func (r *AdminRepository) GetUserSpecialRoles(userID uuid.UUID) ([]domain.SpecialRole, error) {
+	var roles []domain.SpecialRole
+	err := r.db.Joins("JOIN user_special_roles ON special_roles.id = user_special_roles.special_role_id").
+		Where("user_special_roles.user_id = ? AND special_roles.deleted_at IS NULL", userID).
+		Find(&roles).Error
+	return roles, err
+}
+
+// UpdateUserSpecialRoles replaces all special roles for a user
+func (r *AdminRepository) UpdateUserSpecialRoles(userID uuid.UUID, roleIDs []uuid.UUID, assignedBy uuid.UUID) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Remove all existing roles
+		if err := tx.Where("user_id = ?", userID).Delete(&domain.UserSpecialRole{}).Error; err != nil {
+			return err
+		}
+
+		// Add new roles
+		for _, roleID := range roleIDs {
+			userRole := &domain.UserSpecialRole{
+				UserID:        userID,
+				SpecialRoleID: roleID,
+				AssignedBy:    &assignedBy,
+				AssignedAt:    time.Now(),
+			}
+			if err := tx.Create(userRole).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// GetUserCapabilities returns merged capabilities from all user's special roles
+func (r *AdminRepository) GetUserCapabilities(userID uuid.UUID) ([]string, error) {
+	var roles []domain.SpecialRole
+	err := r.db.Joins("JOIN user_special_roles ON special_roles.id = user_special_roles.special_role_id").
+		Where("user_special_roles.user_id = ? AND special_roles.deleted_at IS NULL AND special_roles.is_active = true", userID).
+		Find(&roles).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge capabilities (unique)
+	capMap := make(map[string]bool)
+	for _, role := range roles {
+		for _, cap := range role.Capabilities {
+			capMap[cap] = true
+		}
+	}
+
+	capabilities := make([]string, 0, len(capMap))
+	for cap := range capMap {
+		capabilities = append(capabilities, cap)
+	}
+	return capabilities, nil
+}
+
+// HasCapability checks if a user has a specific capability
+func (r *AdminRepository) HasCapability(userID uuid.UUID, capability string) (bool, error) {
+	capabilities, err := r.GetUserCapabilities(userID)
+	if err != nil {
+		return false, err
+	}
+	for _, cap := range capabilities {
+		if cap == capability {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// GetActiveSpecialRoles returns only active special roles (for assignment UI)
+func (r *AdminRepository) GetActiveSpecialRoles() ([]domain.SpecialRole, error) {
+	var roles []domain.SpecialRole
+	err := r.db.Where("deleted_at IS NULL AND is_active = true").Order("nama ASC").Find(&roles).Error
+	return roles, err
 }

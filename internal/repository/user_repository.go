@@ -183,3 +183,12 @@ func (r *UserRepository) UpdateSocialLinks(userID uuid.UUID, links []domain.User
 		return nil
 	})
 }
+
+// GetUserSpecialRoles returns active special roles for a user (for public profile)
+func (r *UserRepository) GetUserSpecialRoles(userID uuid.UUID) ([]domain.SpecialRole, error) {
+	var roles []domain.SpecialRole
+	err := r.db.Joins("JOIN user_special_roles ON special_roles.id = user_special_roles.special_role_id").
+		Where("user_special_roles.user_id = ? AND special_roles.deleted_at IS NULL AND special_roles.is_active = true", userID).
+		Find(&roles).Error
+	return roles, err
+}

@@ -18,6 +18,7 @@ type PortfolioListDTO struct {
 	IsLiked      bool              `json:"is_liked,omitempty"`
 	User         *PortfolioUserDTO `json:"user,omitempty"`
 	Tags         []TagDTO          `json:"tags,omitempty"`
+	Series       []SeriesDTO       `json:"series,omitempty"`
 }
 
 type PortfolioUserDTO struct {
@@ -46,6 +47,7 @@ type PortfolioDetailDTO struct {
 	IsLiked         bool              `json:"is_liked"`
 	User            *PortfolioUserDTO `json:"user,omitempty"`
 	Tags            []TagDTO          `json:"tags,omitempty"`
+	Series          []SeriesDTO       `json:"series,omitempty"`
 	ContentBlocks   []ContentBlockDTO `json:"content_blocks,omitempty"`
 }
 
@@ -66,15 +68,17 @@ type MyPortfolioDTO struct {
 
 // Create/Update Portfolio
 type CreatePortfolioRequest struct {
-	Judul  string      `json:"judul" validate:"required"`
-	UserID *uuid.UUID  `json:"user_id,omitempty"` // Admin can assign to another user
-	TagIDs []uuid.UUID `json:"tag_ids,omitempty"`
+	Judul     string      `json:"judul" validate:"required"`
+	UserID    *uuid.UUID  `json:"user_id,omitempty"` // Admin can assign to another user
+	TagIDs    []uuid.UUID `json:"tag_ids,omitempty"`
+	SeriesIDs []uuid.UUID `json:"series_ids,omitempty"`
 }
 
 type UpdatePortfolioRequest struct {
 	Judul        *string     `json:"judul,omitempty"`
 	ThumbnailURL *string     `json:"thumbnail_url,omitempty"`
 	TagIDs       []uuid.UUID `json:"tag_ids,omitempty"`
+	SeriesIDs    []uuid.UUID `json:"series_ids,omitempty"`
 }
 
 // Content Block

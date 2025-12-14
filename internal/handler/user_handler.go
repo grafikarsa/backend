@@ -132,6 +132,17 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 		tahunLulus = &calculated
 	}
 
+	// Get special roles for public display
+	specialRoles, _ := h.userRepo.GetUserSpecialRoles(user.ID)
+	var specialRoleDTOs []dto.UserSpecialRoleDTO
+	for _, sr := range specialRoles {
+		specialRoleDTOs = append(specialRoleDTOs, dto.UserSpecialRoleDTO{
+			ID:    sr.ID,
+			Nama:  sr.Nama,
+			Color: sr.Color,
+		})
+	}
+
 	userDTO := dto.UserDetailDTO{
 		ID:             user.ID,
 		Username:       user.Username,
@@ -144,6 +155,7 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 		TahunLulus:     tahunLulus,
 		ClassHistory:   historyDTOs,
 		SocialLinks:    socialLinks,
+		SpecialRoles:   specialRoleDTOs,
 		FollowerCount:  followerCount,
 		FollowingCount: followingCount,
 		PortfolioCount: portfolioCount,

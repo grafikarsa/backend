@@ -48,24 +48,26 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 4. [Portfolios](#4-portfolios)
 5. [Content Blocks](#5-content-blocks)
 6. [Tags](#6-tags)
-7. [File Upload (MinIO)](#7-file-upload-minio)
-8. [Social (Follow)](#8-social-follow)
-9. [Likes](#9-likes)
-10. [Search](#10-search)
-11. [Feed](#11-feed)
-12. [Admin - Jurusan](#12-admin---jurusan)
-13. [Admin - Tahun Ajaran](#13-admin---tahun-ajaran)
-14. [Admin - Kelas](#14-admin---kelas)
-15. [Admin - Users](#15-admin---users)
-16. [Admin - Tags](#16-admin---tags)
-17. [Admin - Moderasi](#17-admin---moderasi)
-18. [Admin - Dashboard](#18-admin---dashboard)
-19. [Public - Jurusan & Kelas](#19-public---jurusan--kelas)
-20. [Feedback](#20-feedback)
-21. [Admin - Assessment Metrics](#21-admin---assessment-metrics)
-22. [Admin - Portfolio Assessments](#22-admin---portfolio-assessments)
-23. [Notifications](#23-notifications)
-22. [Admin - Portfolio Assessments](#22-admin---portfolio-assessments)
+7. [Series](#7-series)
+8. [File Upload (MinIO)](#8-file-upload-minio)
+9. [Social (Follow)](#9-social-follow)
+10. [Likes](#10-likes)
+11. [Search](#11-search)
+12. [Feed](#12-feed)
+13. [Admin - Jurusan](#13-admin---jurusan)
+14. [Admin - Tahun Ajaran](#14-admin---tahun-ajaran)
+15. [Admin - Kelas](#15-admin---kelas)
+16. [Admin - Users](#16-admin---users)
+17. [Admin - Tags](#17-admin---tags)
+18. [Admin - Series](#18-admin---series)
+19. [Admin - Moderasi](#19-admin---moderasi)
+20. [Admin - Dashboard](#20-admin---dashboard)
+21. [Public - Jurusan & Kelas](#21-public---jurusan--kelas)
+22. [Feedback](#22-feedback)
+23. [Admin - Assessment Metrics](#23-admin---assessment-metrics)
+24. [Admin - Portfolio Assessments](#24-admin---portfolio-assessments)
+25. [Notifications](#25-notifications)
+26. [Admin - Special Roles](#26-admin---special-roles)
 
 ---
 
@@ -866,6 +868,9 @@ Detail portfolio berdasarkan slug.
       { "id": "tag-uuid-1", "nama": "Web Development" },
       { "id": "tag-uuid-2", "nama": "UI/UX Design" }
     ],
+    "series": [
+      { "id": "series-uuid-1", "nama": "PJBL Semester 1", "is_active": true }
+    ],
     "content_blocks": [
       {
         "id": "block-uuid-1",
@@ -984,7 +989,8 @@ Buat portfolio baru (status default: draft).
 ```json
 {
   "judul": "Website Portfolio Pribadi",
-  "tag_ids": ["tag-uuid-1", "tag-uuid-2"]
+  "tag_ids": ["tag-uuid-1", "tag-uuid-2"],
+  "series_ids": ["series-uuid-1"]
 }
 ```
 
@@ -1001,6 +1007,9 @@ Buat portfolio baru (status default: draft).
     "tags": [
       { "id": "tag-uuid-1", "nama": "Web Development" },
       { "id": "tag-uuid-2", "nama": "UI/UX Design" }
+    ],
+    "series": [
+      { "id": "series-uuid-1", "nama": "PJBL Semester 1", "is_active": true }
     ],
     "content_blocks": [],
     "created_at": "2025-12-09T10:00:00Z"
@@ -1051,7 +1060,8 @@ Update portfolio.
 {
   "judul": "Website Portfolio Pribadi - Updated",
   "thumbnail_url": "https://cdn.grafikarsa.com/thumbnails/portfolio1.jpg",
-  "tag_ids": ["tag-uuid-1", "tag-uuid-3"]
+  "tag_ids": ["tag-uuid-1", "tag-uuid-3"],
+  "series_ids": ["series-uuid-1", "series-uuid-2"]
 }
 ```
 
@@ -1438,7 +1448,40 @@ Daftar semua tags.
 
 ---
 
-## 7. File Upload (MinIO)
+## 7. Series
+
+Series adalah fitur pengkategorian portfolio berdasarkan event/tema tertentu (misal: Ujian PJBL, Lomba, Project Akhir Semester). Berbeda dengan Tags yang bersifat umum, Series lebih spesifik untuk event/kegiatan tertentu dan memiliki status aktif/non-aktif.
+
+### GET /series
+
+Daftar semua series yang aktif (untuk dropdown di form portfolio).
+
+**Authentication:** None
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "series-uuid-1",
+      "nama": "PJBL Semester 1",
+      "is_active": true,
+      "created_at": "2025-12-01T10:00:00Z"
+    },
+    {
+      "id": "series-uuid-2",
+      "nama": "Ujian Praktik",
+      "is_active": true,
+      "created_at": "2025-12-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 8. File Upload (MinIO)
 
 Grafikarsa menggunakan MinIO sebagai object storage untuk menyimpan file (avatar, banner, thumbnail, gambar portfolio). Upload menggunakan **presigned URL** untuk performa dan keamanan optimal.
 
@@ -1863,7 +1906,7 @@ File yang sudah diupload akan diakses melalui CDN:
 
 ---
 
-## 8. Social (Follow)
+## 9. Social (Follow)
 
 ### POST /users/{username}/follow
 
@@ -1947,7 +1990,7 @@ Unfollow user.
 
 ---
 
-## 9. Likes
+## 10. Likes
 
 ### POST /portfolios/{id}/like
 
@@ -2002,7 +2045,7 @@ Unlike portfolio.
 
 ---
 
-## 10. Search
+## 11. Search
 
 ### GET /search/users
 
@@ -2067,7 +2110,7 @@ Cari portfolio.
 
 ---
 
-## 11. Feed
+## 12. Feed
 
 ### GET /feed
 
@@ -2117,7 +2160,7 @@ Timeline portfolio dari user yang di-follow (untuk user yang login).
 
 ---
 
-## 12. Admin - Jurusan
+## 13. Admin - Jurusan
 
 ### GET /admin/jurusan
 
@@ -2268,7 +2311,7 @@ Hapus jurusan (soft delete).
 
 ---
 
-## 13. Admin - Tahun Ajaran
+## 14. Admin - Tahun Ajaran
 
 ### GET /admin/tahun-ajaran
 
@@ -2406,7 +2449,7 @@ Hapus tahun ajaran.
 
 ---
 
-## 14. Admin - Kelas
+## 15. Admin - Kelas
 
 ### GET /admin/kelas
 
@@ -2613,7 +2656,7 @@ Daftar siswa dalam kelas.
 
 ---
 
-## 15. Admin - Users
+## 16. Admin - Users
 
 ### GET /admin/users
 
@@ -2908,7 +2951,7 @@ Aktifkan user.
 
 ---
 
-## 16. Admin - Tags
+## 17. Admin - Tags
 
 ### GET /admin/tags
 
@@ -3024,7 +3067,142 @@ Hapus tag.
 
 ---
 
-## 17. Admin - Moderasi
+## 18. Admin - Series
+
+Series adalah fitur pengkategorian portfolio berdasarkan event/tema tertentu. Admin dapat mengelola series dengan CRUD operations dan mengatur status aktif/non-aktif.
+
+### GET /admin/series
+
+Daftar semua series (termasuk yang tidak aktif).
+
+**Authentication:** Required (admin only)
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| search | string | Cari berdasarkan nama series |
+| page | integer | Halaman |
+| limit | integer | Jumlah per halaman |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "series-uuid-1",
+      "nama": "PJBL Semester 1",
+      "is_active": true,
+      "created_at": "2025-12-01T10:00:00Z"
+    },
+    {
+      "id": "series-uuid-2",
+      "nama": "Ujian Praktik",
+      "is_active": false,
+      "created_at": "2025-12-01T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "current_page": 1,
+    "per_page": 20,
+    "total_pages": 1,
+    "total_count": 2
+  }
+}
+```
+
+---
+
+### POST /admin/series
+
+Buat series baru.
+
+**Authentication:** Required (admin only)
+
+**Request Body:**
+```json
+{
+  "nama": "PJBL Semester 2",
+  "is_active": true
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "series-uuid-3",
+    "nama": "PJBL Semester 2",
+    "is_active": true,
+    "created_at": "2025-12-09T10:00:00Z"
+  },
+  "message": "Series berhasil dibuat"
+}
+```
+
+**Error Response:**
+
+`409 Conflict`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "DUPLICATE_ERROR",
+    "message": "Series dengan nama tersebut sudah ada"
+  }
+}
+```
+
+---
+
+### PATCH /admin/series/{id}
+
+Update series (nama dan/atau status aktif).
+
+**Authentication:** Required (admin only)
+
+**Request Body:**
+```json
+{
+  "nama": "PJBL Semester 2 - Updated",
+  "is_active": false
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "series-uuid-3",
+    "nama": "PJBL Semester 2 - Updated",
+    "is_active": false,
+    "created_at": "2025-12-09T10:00:00Z"
+  },
+  "message": "Series berhasil diperbarui"
+}
+```
+
+---
+
+### DELETE /admin/series/{id}
+
+Hapus series (soft delete).
+
+**Authentication:** Required (admin only)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Series berhasil dihapus"
+}
+```
+
+---
+
+## 19. Admin - Moderasi
 
 ### GET /admin/portfolios/pending
 
@@ -3277,7 +3455,7 @@ Hapus portfolio (admin).
 
 ---
 
-## 18. Admin - Dashboard
+## 20. Admin - Dashboard
 
 ### GET /admin/dashboard/stats
 
@@ -3319,7 +3497,7 @@ Statistik dashboard admin.
 
 ---
 
-## 19. Public - Jurusan & Kelas
+## 21. Public - Jurusan & Kelas
 
 ### GET /jurusan
 
@@ -3380,7 +3558,7 @@ Daftar kelas aktif (publik).
 
 ---
 
-## 20. Feedback
+## 22. Feedback
 
 ### POST /feedback
 
@@ -3550,7 +3728,7 @@ Hapus feedback (admin only).
 
 ---
 
-## 21. Admin - Assessment Metrics
+## 23. Admin - Assessment Metrics
 
 Endpoint untuk mengelola metrik penilaian portfolio.
 
@@ -3766,7 +3944,7 @@ Ubah urutan metrik penilaian.
 
 ---
 
-## 22. Admin - Portfolio Assessments
+## 24. Admin - Portfolio Assessments
 
 Endpoint untuk mengelola penilaian portfolio.
 
@@ -4077,7 +4255,7 @@ Hapus penilaian portfolio.
 
 ---
 
-## 23. Notifications
+## 25. Notifications
 
 Endpoint untuk mengelola notifikasi user.
 
@@ -4204,6 +4382,335 @@ Hapus satu notifikasi.
 {
   "success": true,
   "message": "Notifikasi berhasil dihapus"
+}
+```
+
+---
+
+## 26. Admin - Special Roles
+
+Endpoint untuk mengelola special roles (role custom dengan capabilities tertentu).
+
+### GET /admin/special-roles
+
+Daftar semua special roles.
+
+**Authentication:** Required (Admin)
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| search | string | Cari berdasarkan nama |
+| include_inactive | boolean | Sertakan role nonaktif (default: false) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nama": "Moderator Konten",
+      "description": "Dapat memoderasi dan mengelola portfolio",
+      "color": "#6366f1",
+      "capabilities": ["portfolios", "moderation"],
+      "is_active": true,
+      "user_count": 3,
+      "created_at": "2025-12-14T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /admin/special-roles/active
+
+Daftar special roles yang aktif (untuk UI assignment).
+
+**Authentication:** Required (Admin)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "nama": "Moderator Konten",
+      "color": "#6366f1",
+      "capabilities": ["portfolios", "moderation"],
+      "is_active": true
+    }
+  ]
+}
+```
+
+---
+
+### GET /admin/special-roles/capabilities
+
+Daftar capabilities yang tersedia.
+
+**Authentication:** Required (Admin)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    { "key": "dashboard", "label": "Dashboard", "group": "Overview" },
+    { "key": "portfolios", "label": "Kelola Portfolios", "group": "Konten" },
+    { "key": "moderation", "label": "Moderasi", "group": "Konten" },
+    { "key": "assessments", "label": "Penilaian", "group": "Konten" },
+    { "key": "assessment_metrics", "label": "Metrik Penilaian", "group": "Konten" },
+    { "key": "tags", "label": "Kelola Tags", "group": "Konten" },
+    { "key": "series", "label": "Kelola Series", "group": "Konten" },
+    { "key": "users", "label": "Kelola Users", "group": "Pengguna" },
+    { "key": "special_roles", "label": "Kelola Special Roles", "group": "Pengguna" },
+    { "key": "majors", "label": "Kelola Jurusan", "group": "Akademik" },
+    { "key": "classes", "label": "Kelola Kelas", "group": "Akademik" },
+    { "key": "academic_years", "label": "Tahun Ajaran", "group": "Akademik" },
+    { "key": "feedback", "label": "Kelola Feedback", "group": "Lainnya" }
+  ]
+}
+```
+
+---
+
+### POST /admin/special-roles
+
+Buat special role baru.
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "nama": "Moderator Konten",
+  "description": "Dapat memoderasi dan mengelola portfolio",
+  "color": "#6366f1",
+  "capabilities": ["portfolios", "moderation"],
+  "is_active": true
+}
+```
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nama": "Moderator Konten",
+    "description": "Dapat memoderasi dan mengelola portfolio",
+    "color": "#6366f1",
+    "capabilities": ["portfolios", "moderation"],
+    "is_active": true,
+    "created_at": "2025-12-14T10:00:00Z"
+  },
+  "message": "Special role berhasil dibuat"
+}
+```
+
+---
+
+### GET /admin/special-roles/:id
+
+Detail special role dengan daftar users.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID special role |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "nama": "Moderator Konten",
+    "description": "Dapat memoderasi dan mengelola portfolio",
+    "color": "#6366f1",
+    "capabilities": ["portfolios", "moderation"],
+    "is_active": true,
+    "user_count": 3,
+    "created_at": "2025-12-14T10:00:00Z",
+    "users": [
+      {
+        "id": "user-uuid",
+        "username": "john_doe",
+        "nama": "John Doe",
+        "avatar_url": "https://...",
+        "kelas_nama": "XII-RPL-A",
+        "assigned_at": "2025-12-14T10:00:00Z",
+        "assigned_by": "admin-uuid"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### PATCH /admin/special-roles/:id
+
+Update special role.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID special role |
+
+**Request Body:**
+```json
+{
+  "nama": "Super Moderator",
+  "description": "Updated description",
+  "color": "#3b82f6",
+  "capabilities": ["portfolios", "moderation", "tags"],
+  "is_active": true
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Special role berhasil diperbarui"
+}
+```
+
+---
+
+### DELETE /admin/special-roles/:id
+
+Hapus special role (soft delete).
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID special role |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Special role berhasil dihapus"
+}
+```
+
+---
+
+### POST /admin/special-roles/:id/users
+
+Assign users ke special role.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID special role |
+
+**Request Body:**
+```json
+{
+  "user_ids": ["user-uuid-1", "user-uuid-2"]
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Users berhasil di-assign ke role"
+}
+```
+
+---
+
+### DELETE /admin/special-roles/:id/users/:userId
+
+Hapus user dari special role.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID special role |
+| userId | UUID | ID user |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "User berhasil dihapus dari role"
+}
+```
+
+---
+
+### GET /admin/users/:id/special-roles
+
+Daftar special roles yang dimiliki user.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID user |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "role-uuid",
+      "nama": "Moderator Konten",
+      "color": "#6366f1",
+      "capabilities": ["portfolios", "moderation"],
+      "is_active": true
+    }
+  ]
+}
+```
+
+---
+
+### PUT /admin/users/:id/special-roles
+
+Update special roles user (replace all).
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID user |
+
+**Request Body:**
+```json
+{
+  "special_role_ids": ["role-uuid-1", "role-uuid-2"]
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Special roles user berhasil diperbarui"
 }
 ```
 

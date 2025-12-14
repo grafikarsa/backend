@@ -511,6 +511,133 @@ func (h *AdminHandler) DeleteTag(c *fiber.Ctx) error {
 	return c.JSON(dto.SuccessResponse(nil, "Tag berhasil dihapus"))
 }
 
+// Series Management Handlers
+func (h *AdminHandler) ListSeries(c *fiber.Ctx) error {
+	search := c.Query("search")
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+
+	series, total, err := h.adminRepo.ListSeries(search, page, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data series"))
+	}
+
+	var result []dto.SeriesDTO
+	for _, s := range series {
+		result = append(result, dto.SeriesDTO{
+			ID:        s.ID,
+			Nama:      s.Nama,
+			IsActive:  s.IsActive,
+			CreatedAt: s.CreatedAt,
+		})
+	}
+
+	totalPages := int(total) / limit
+	if int(total)%limit > 0 {
+		totalPages++
+	}
+
+	return c.JSON(dto.SuccessWithMeta(result, &dto.Meta{
+		CurrentPage: page,
+		PerPage:     limit,
+		TotalPages:  totalPages,
+		TotalCount:  total,
+	}))
+}
+
+func (h *AdminHandler) CreateSeries(c *fiber.Ctx) error {
+	var req dto.CreateSeriesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	if req.Nama == "" {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+			dto.ErrorDetail{Field: "nama", Message: "Nama series wajib diisi"},
+		))
+	}
+
+	// Check duplicate
+	exists, _ := h.adminRepo.SeriesNameExists(req.Nama, nil)
+	if exists {
+		return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("DUPLICATE_ERROR", "Series dengan nama tersebut sudah ada"))
+	}
+
+	isActive := true
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	}
+
+	series := &domain.Series{
+		Nama:     req.Nama,
+		IsActive: isActive,
+	}
+
+	if err := h.adminRepo.CreateSeries(series); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal membuat series"))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(dto.SeriesDTO{
+		ID:        series.ID,
+		Nama:      series.Nama,
+		IsActive:  series.IsActive,
+		CreatedAt: series.CreatedAt,
+	}, "Series berhasil dibuat"))
+}
+
+func (h *AdminHandler) UpdateSeries(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	series, err := h.adminRepo.FindSeriesByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("SERIES_NOT_FOUND", "Series tidak ditemukan"))
+	}
+
+	var req dto.UpdateSeriesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	if req.Nama != nil {
+		// Check duplicate
+		exists, _ := h.adminRepo.SeriesNameExists(*req.Nama, &id)
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("DUPLICATE_ERROR", "Series dengan nama tersebut sudah ada"))
+		}
+		series.Nama = *req.Nama
+	}
+	if req.IsActive != nil {
+		series.IsActive = *req.IsActive
+	}
+
+	if err := h.adminRepo.UpdateSeries(series); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui series"))
+	}
+
+	return c.JSON(dto.SuccessResponse(dto.SeriesDTO{
+		ID:        series.ID,
+		Nama:      series.Nama,
+		IsActive:  series.IsActive,
+		CreatedAt: series.CreatedAt,
+	}, "Series berhasil diperbarui"))
+}
+
+func (h *AdminHandler) DeleteSeries(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	if err := h.adminRepo.DeleteSeries(id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menghapus series"))
+	}
+
+	return c.JSON(dto.SuccessResponse(nil, "Series berhasil dihapus"))
+}
+
 // User Management Handlers
 func (h *AdminHandler) ListUsers(c *fiber.Ctx) error {
 	search := c.Query("search")
@@ -1204,4 +1331,367 @@ func (h *AdminHandler) GetDashboardStats(c *fiber.Ctx) error {
 		RecentUsers:             recentUsersDTO,
 		RecentPendingPortfolios: recentPendingDTO,
 	}, ""))
+}
+
+// ============================================================================
+// SPECIAL ROLE HANDLERS
+// ============================================================================
+
+// ListSpecialRoles returns all special roles
+func (h *AdminHandler) ListSpecialRoles(c *fiber.Ctx) error {
+	search := c.Query("search")
+	includeInactive := c.Query("include_inactive") == "true"
+
+	roles, err := h.adminRepo.ListSpecialRoles(search, includeInactive)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data special roles"))
+	}
+
+	var result []dto.SpecialRoleDTO
+	for _, r := range roles {
+		userCount, _ := h.adminRepo.GetSpecialRoleUserCount(r.ID)
+		caps := []string(r.Capabilities)
+		if caps == nil {
+			caps = []string{}
+		}
+		result = append(result, dto.SpecialRoleDTO{
+			ID:           r.ID,
+			Nama:         r.Nama,
+			Description:  r.Description,
+			Color:        r.Color,
+			Capabilities: caps,
+			IsActive:     r.IsActive,
+			UserCount:    int(userCount),
+			CreatedAt:    r.CreatedAt,
+		})
+	}
+
+	return c.JSON(dto.SuccessResponse(result, ""))
+}
+
+// CreateSpecialRole creates a new special role
+func (h *AdminHandler) CreateSpecialRole(c *fiber.Ctx) error {
+	var req dto.CreateSpecialRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	if req.Nama == "" {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+			dto.ErrorDetail{Field: "nama", Message: "Nama role wajib diisi"},
+		))
+	}
+
+	if len(req.Capabilities) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+			dto.ErrorDetail{Field: "capabilities", Message: "Minimal satu capability harus dipilih"},
+		))
+	}
+
+	// Validate capabilities
+	for _, cap := range req.Capabilities {
+		if _, ok := dto.ValidCapabilities[cap]; !ok {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+				dto.ErrorDetail{Field: "capabilities", Message: "Capability tidak valid: " + cap},
+			))
+		}
+	}
+
+	// Check duplicate name
+	exists, _ := h.adminRepo.SpecialRoleNameExists(req.Nama, nil)
+	if exists {
+		return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("DUPLICATE_ERROR", "Special role dengan nama tersebut sudah ada"))
+	}
+
+	isActive := true
+	if req.IsActive != nil {
+		isActive = *req.IsActive
+	}
+
+	color := "#6366f1"
+	if req.Color != "" {
+		color = req.Color
+	}
+
+	role := &domain.SpecialRole{
+		Nama:         req.Nama,
+		Description:  req.Description,
+		Color:        color,
+		Capabilities: domain.StringArray(req.Capabilities),
+		IsActive:     isActive,
+	}
+
+	if err := h.adminRepo.CreateSpecialRole(role); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal membuat special role"))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(dto.SpecialRoleDTO{
+		ID:           role.ID,
+		Nama:         role.Nama,
+		Description:  role.Description,
+		Color:        role.Color,
+		Capabilities: []string(role.Capabilities),
+		IsActive:     role.IsActive,
+		CreatedAt:    role.CreatedAt,
+	}, "Special role berhasil dibuat"))
+}
+
+// GetSpecialRole returns a special role with its users
+func (h *AdminHandler) GetSpecialRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	role, err := h.adminRepo.FindSpecialRoleByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("NOT_FOUND", "Special role tidak ditemukan"))
+	}
+
+	userRoles, _ := h.adminRepo.GetSpecialRoleUsers(role.ID)
+	var users []dto.SpecialRoleUserDTO
+	for _, ur := range userRoles {
+		if ur.User != nil {
+			var kelasNama *string
+			if ur.User.Kelas != nil {
+				kelasNama = &ur.User.Kelas.Nama
+			}
+			users = append(users, dto.SpecialRoleUserDTO{
+				ID:         ur.User.ID,
+				Username:   ur.User.Username,
+				Nama:       ur.User.Nama,
+				AvatarURL:  ur.User.AvatarURL,
+				KelasNama:  kelasNama,
+				AssignedAt: ur.AssignedAt,
+				AssignedBy: ur.AssignedBy,
+			})
+		}
+	}
+
+	caps := []string(role.Capabilities)
+	if caps == nil {
+		caps = []string{}
+	}
+
+	return c.JSON(dto.SuccessResponse(dto.SpecialRoleDetailDTO{
+		SpecialRoleDTO: dto.SpecialRoleDTO{
+			ID:           role.ID,
+			Nama:         role.Nama,
+			Description:  role.Description,
+			Color:        role.Color,
+			Capabilities: caps,
+			IsActive:     role.IsActive,
+			UserCount:    len(users),
+			CreatedAt:    role.CreatedAt,
+		},
+		Users: users,
+	}, ""))
+}
+
+// UpdateSpecialRole updates a special role
+func (h *AdminHandler) UpdateSpecialRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	role, err := h.adminRepo.FindSpecialRoleByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("NOT_FOUND", "Special role tidak ditemukan"))
+	}
+
+	var req dto.UpdateSpecialRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	if req.Nama != nil {
+		exists, _ := h.adminRepo.SpecialRoleNameExists(*req.Nama, &id)
+		if exists {
+			return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse("DUPLICATE_ERROR", "Special role dengan nama tersebut sudah ada"))
+		}
+		role.Nama = *req.Nama
+	}
+
+	if req.Description != nil {
+		role.Description = req.Description
+	}
+
+	if req.Color != nil {
+		role.Color = *req.Color
+	}
+
+	if req.Capabilities != nil {
+		// Validate capabilities
+		for _, cap := range req.Capabilities {
+			if _, ok := dto.ValidCapabilities[cap]; !ok {
+				return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+					dto.ErrorDetail{Field: "capabilities", Message: "Capability tidak valid: " + cap},
+				))
+			}
+		}
+		role.Capabilities = domain.StringArray(req.Capabilities)
+	}
+
+	if req.IsActive != nil {
+		role.IsActive = *req.IsActive
+	}
+
+	if err := h.adminRepo.UpdateSpecialRole(role); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui special role"))
+	}
+
+	return c.JSON(dto.SuccessResponse(dto.SpecialRoleDTO{
+		ID:           role.ID,
+		Nama:         role.Nama,
+		Description:  role.Description,
+		Color:        role.Color,
+		Capabilities: []string(role.Capabilities),
+		IsActive:     role.IsActive,
+		CreatedAt:    role.CreatedAt,
+	}, "Special role berhasil diperbarui"))
+}
+
+// DeleteSpecialRole deletes a special role
+func (h *AdminHandler) DeleteSpecialRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	if err := h.adminRepo.DeleteSpecialRole(id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menghapus special role"))
+	}
+
+	return c.JSON(dto.SuccessResponse(nil, "Special role berhasil dihapus"))
+}
+
+// AssignUsersToRole assigns users to a special role
+func (h *AdminHandler) AssignUsersToRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	_, err = h.adminRepo.FindSpecialRoleByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("NOT_FOUND", "Special role tidak ditemukan"))
+	}
+
+	var req dto.AssignUsersRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	if len(req.UserIDs) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Validasi gagal",
+			dto.ErrorDetail{Field: "user_ids", Message: "Minimal satu user harus dipilih"},
+		))
+	}
+
+	adminID := middleware.GetUserID(c)
+	if err := h.adminRepo.AssignUsersToRole(id, req.UserIDs, *adminID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal assign users ke role"))
+	}
+
+	return c.JSON(dto.SuccessResponse(nil, "Users berhasil di-assign ke role"))
+}
+
+// RemoveUserFromRole removes a user from a special role
+func (h *AdminHandler) RemoveUserFromRole(c *fiber.Ctx) error {
+	roleID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Role ID tidak valid"))
+	}
+
+	userID, err := uuid.Parse(c.Params("userId"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "User ID tidak valid"))
+	}
+
+	if err := h.adminRepo.RemoveUserFromRole(roleID, userID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menghapus user dari role"))
+	}
+
+	return c.JSON(dto.SuccessResponse(nil, "User berhasil dihapus dari role"))
+}
+
+// GetUserSpecialRoles returns special roles for a user
+func (h *AdminHandler) GetUserSpecialRoles(c *fiber.Ctx) error {
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	roles, err := h.adminRepo.GetUserSpecialRoles(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil special roles user"))
+	}
+
+	var result []dto.SpecialRoleDTO
+	for _, r := range roles {
+		result = append(result, dto.SpecialRoleDTO{
+			ID:           r.ID,
+			Nama:         r.Nama,
+			Description:  r.Description,
+			Color:        r.Color,
+			Capabilities: []string(r.Capabilities),
+			IsActive:     r.IsActive,
+			CreatedAt:    r.CreatedAt,
+		})
+	}
+
+	return c.JSON(dto.SuccessResponse(result, ""))
+}
+
+// UpdateUserSpecialRoles updates special roles for a user
+func (h *AdminHandler) UpdateUserSpecialRoles(c *fiber.Ctx) error {
+	userID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "ID tidak valid"))
+	}
+
+	var req dto.UserSpecialRolesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
+	}
+
+	adminID := middleware.GetUserID(c)
+	if err := h.adminRepo.UpdateUserSpecialRoles(userID, req.SpecialRoleIDs, *adminID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal memperbarui special roles user"))
+	}
+
+	return c.JSON(dto.SuccessResponse(nil, "Special roles user berhasil diperbarui"))
+}
+
+// GetCapabilities returns list of available capabilities
+func (h *AdminHandler) GetCapabilities(c *fiber.Ctx) error {
+	return c.JSON(dto.SuccessResponse(dto.GetCapabilitiesList(), ""))
+}
+
+// GetActiveSpecialRoles returns only active special roles (for assignment UI)
+func (h *AdminHandler) GetActiveSpecialRoles(c *fiber.Ctx) error {
+	roles, err := h.adminRepo.GetActiveSpecialRoles()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data special roles"))
+	}
+
+	var result []dto.SpecialRoleDTO
+	for _, r := range roles {
+		caps := []string(r.Capabilities)
+		if caps == nil {
+			caps = []string{}
+		}
+		result = append(result, dto.SpecialRoleDTO{
+			ID:           r.ID,
+			Nama:         r.Nama,
+			Description:  r.Description,
+			Color:        r.Color,
+			Capabilities: caps,
+			IsActive:     r.IsActive,
+			CreatedAt:    r.CreatedAt,
+		})
+	}
+
+	return c.JSON(dto.SuccessResponse(result, ""))
 }

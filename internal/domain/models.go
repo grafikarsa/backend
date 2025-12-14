@@ -126,6 +126,15 @@ type Tag struct {
 
 func (Tag) TableName() string { return "tags" }
 
+// Series (untuk kategorisasi berdasarkan event/tema)
+type Series struct {
+	BaseModel
+	Nama     string `gorm:"type:varchar(100);not null;uniqueIndex" json:"nama"`
+	IsActive bool   `gorm:"not null;default:true" json:"is_active"`
+}
+
+func (Series) TableName() string { return "series" }
+
 // User
 type User struct {
 	BaseModel
@@ -234,6 +243,7 @@ type Portfolio struct {
 	User            *User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Reviewer        *User           `gorm:"foreignKey:ReviewedBy" json:"reviewer,omitempty"`
 	Tags            []Tag           `gorm:"many2many:portfolio_tags" json:"tags,omitempty"`
+	Series          []Series        `gorm:"many2many:portfolio_series" json:"series,omitempty"`
 	ContentBlocks   []ContentBlock  `gorm:"foreignKey:PortfolioID" json:"content_blocks,omitempty"`
 }
 
@@ -247,6 +257,15 @@ type PortfolioTag struct {
 }
 
 func (PortfolioTag) TableName() string { return "portfolio_tags" }
+
+// PortfolioSeries (junction table)
+type PortfolioSeries struct {
+	PortfolioID uuid.UUID `gorm:"type:uuid;primaryKey" json:"portfolio_id"`
+	SeriesID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"series_id"`
+	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
+}
+
+func (PortfolioSeries) TableName() string { return "portfolio_series" }
 
 // ContentBlock
 type ContentBlock struct {
@@ -390,3 +409,108 @@ type Notification struct {
 }
 
 func (Notification) TableName() string { return "notifications" }
+
+// ============================================================================
+// SPECIAL ROLE MODELS
+// ============================================================================
+
+// StringArray type for PostgreSQL text[] array
+type StringArray []string
+
+func (a StringArray) Value() (driver.Value, error) {
+	if a == nil {
+		return "{}", nil
+	}
+	return "{" + stringArrayJoin(a) + "}", nil
+}
+
+func stringArrayJoin(arr []string) string {
+	result := ""
+	for i, s := range arr {
+		if i > 0 {
+			result += ","
+		}
+		result += "\"" + s + "\""
+	}
+	return result
+}
+
+func (a *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*a = []string{}
+		return nil
+	}
+
+	var str string
+	switch v := value.(type) {
+	case []byte:
+		str = string(v)
+	case string:
+		str = v
+	default:
+		*a = []string{}
+		return nil
+	}
+
+	// Parse PostgreSQL array format: {item1,item2,item3}
+	if str == "{}" || str == "" {
+		*a = []string{}
+		return nil
+	}
+	str = str[1 : len(str)-1] // Remove { and }
+	*a = parsePostgresArray(str)
+	return nil
+}
+
+func parsePostgresArray(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	var result []string
+	var current string
+	inQuote := false
+	for _, c := range s {
+		switch c {
+		case '"':
+			inQuote = !inQuote
+		case ',':
+			if !inQuote {
+				result = append(result, current)
+				current = ""
+			} else {
+				current += string(c)
+			}
+		default:
+			current += string(c)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
+// SpecialRole - Custom admin role dengan capabilities tertentu
+type SpecialRole struct {
+	BaseModel
+	Nama         string      `gorm:"type:varchar(100);not null;uniqueIndex" json:"nama"`
+	Description  *string     `gorm:"type:text" json:"description,omitempty"`
+	Color        string      `gorm:"type:varchar(7);not null;default:'#6366f1'" json:"color"`
+	Capabilities StringArray `gorm:"type:text[]" json:"capabilities"`
+	IsActive     bool        `gorm:"not null;default:true" json:"is_active"`
+}
+
+func (SpecialRole) TableName() string { return "special_roles" }
+
+// UserSpecialRole - Junction table untuk user dan special roles
+type UserSpecialRole struct {
+	UserID        uuid.UUID    `gorm:"type:uuid;primaryKey" json:"user_id"`
+	SpecialRoleID uuid.UUID    `gorm:"type:uuid;primaryKey" json:"special_role_id"`
+	AssignedBy    *uuid.UUID   `gorm:"type:uuid" json:"assigned_by,omitempty"`
+	AssignedAt    time.Time    `gorm:"not null;default:now()" json:"assigned_at"`
+	User          *User        `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	SpecialRole   *SpecialRole `gorm:"foreignKey:SpecialRoleID" json:"special_role,omitempty"`
+	Assigner      *User        `gorm:"foreignKey:AssignedBy" json:"assigner,omitempty"`
+}
+
+func (UserSpecialRole) TableName() string { return "user_special_roles" }

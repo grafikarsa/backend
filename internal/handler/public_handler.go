@@ -64,3 +64,22 @@ func (h *PublicHandler) ListKelas(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse(result, ""))
 }
+
+func (h *PublicHandler) ListSeries(c *fiber.Ctx) error {
+	series, err := h.adminRepo.ListActiveSeries()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal mengambil data series"))
+	}
+
+	var result []dto.SeriesDTO
+	for _, s := range series {
+		result = append(result, dto.SeriesDTO{
+			ID:        s.ID,
+			Nama:      s.Nama,
+			IsActive:  s.IsActive,
+			CreatedAt: s.CreatedAt,
+		})
+	}
+
+	return c.JSON(dto.SuccessResponse(result, ""))
+}

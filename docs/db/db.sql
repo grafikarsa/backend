@@ -137,6 +137,22 @@ CREATE INDEX idx_tags_nama ON tags(nama) WHERE deleted_at IS NULL;
 
 COMMENT ON TABLE tags IS 'Master data tags untuk kategorisasi portofolio';
 
+-- Series (untuk kategorisasi berdasarkan event/tema)
+CREATE TABLE series (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama VARCHAR(100) NOT NULL UNIQUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_series_nama ON series(nama) WHERE deleted_at IS NULL;
+CREATE INDEX idx_series_active ON series(is_active) WHERE deleted_at IS NULL;
+
+COMMENT ON TABLE series IS 'Master data series untuk kategorisasi portfolio berdasarkan event/tema (PJBL, Lomba, dll)';
+COMMENT ON COLUMN series.is_active IS 'Status aktif series, hanya series aktif yang ditampilkan ke user';
+
 -- ============================================================================
 -- USER & AUTHENTICATION
 -- ============================================================================
@@ -324,6 +340,19 @@ CREATE TABLE portfolio_tags (
 CREATE INDEX idx_portfolio_tags_tag ON portfolio_tags(tag_id);
 
 COMMENT ON TABLE portfolio_tags IS 'Relasi many-to-many portfolio dan tags';
+
+-- Portfolio Series (many-to-many)
+CREATE TABLE portfolio_series (
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    series_id UUID NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    PRIMARY KEY (portfolio_id, series_id)
+);
+
+CREATE INDEX idx_portfolio_series_series ON portfolio_series(series_id);
+
+COMMENT ON TABLE portfolio_series IS 'Relasi many-to-many portfolio dan series';
 
 -- Content Blocks
 CREATE TABLE content_blocks (
@@ -575,6 +604,7 @@ CREATE TRIGGER trg_jurusan_updated_at BEFORE UPDATE ON jurusan FOR EACH ROW EXEC
 CREATE TRIGGER trg_tahun_ajaran_updated_at BEFORE UPDATE ON tahun_ajaran FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_kelas_updated_at BEFORE UPDATE ON kelas FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_tags_updated_at BEFORE UPDATE ON tags FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_series_updated_at BEFORE UPDATE ON series FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_user_social_links_updated_at BEFORE UPDATE ON user_social_links FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_portfolios_updated_at BEFORE UPDATE ON portfolios FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -688,6 +718,14 @@ INSERT INTO tags (nama) VALUES
 ('Illustration'),
 ('Game Development');
 
+-- Insert sample series
+INSERT INTO series (nama, is_active) VALUES
+('PJBL Semester 1', TRUE),
+('PJBL Semester 2', TRUE),
+('Ujian Praktik', TRUE),
+('Lomba Internal', TRUE),
+('Project Akhir', TRUE);
+
 -- Insert sample assessment metrics
 INSERT INTO assessment_metrics (nama, deskripsi, urutan) VALUES
 ('Kreativitas', 'Tingkat orisinalitas dan inovasi dalam karya', 1),
@@ -749,7 +787,8 @@ SELECT
     k.nama AS user_kelas,
     j.nama AS user_jurusan,
     (SELECT COUNT(*) FROM portfolio_likes WHERE portfolio_id = p.id) AS like_count,
-    (SELECT ARRAY_AGG(t.nama) FROM portfolio_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.portfolio_id = p.id) AS tags
+    (SELECT ARRAY_AGG(t.nama) FROM portfolio_tags pt JOIN tags t ON pt.tag_id = t.id WHERE pt.portfolio_id = p.id) AS tags,
+    (SELECT ARRAY_AGG(s.nama) FROM portfolio_series ps JOIN series s ON ps.series_id = s.id WHERE ps.portfolio_id = p.id) AS series
 FROM portfolios p
 JOIN users u ON p.user_id = u.id AND u.deleted_at IS NULL
 LEFT JOIN kelas k ON u.kelas_id = k.id
@@ -841,3 +880,57 @@ CREATE INDEX idx_notifications_type ON notifications(type);
 COMMENT ON TABLE notifications IS 'Notifikasi untuk user';
 COMMENT ON COLUMN notifications.type IS 'Tipe notifikasi: new_follower, portfolio_liked, portfolio_approved, portfolio_rejected';
 COMMENT ON COLUMN notifications.data IS 'Data tambahan dalam format JSON (actor info, portfolio info, dll)';
+
+-- ============================================================================
+-- SPECIAL ROLES (Akses Admin Terbatas)
+-- ============================================================================
+
+-- Special Roles table
+CREATE TABLE special_roles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    color VARCHAR(7) NOT NULL DEFAULT '#6366f1',
+    capabilities TEXT[] NOT NULL DEFAULT '{}',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_special_roles_nama ON special_roles(nama) WHERE deleted_at IS NULL;
+CREATE INDEX idx_special_roles_active ON special_roles(is_active) WHERE deleted_at IS NULL;
+
+COMMENT ON TABLE special_roles IS 'Master data special roles untuk akses admin terbatas';
+COMMENT ON COLUMN special_roles.color IS 'Warna hex untuk badge/chip (base color untuk text)';
+COMMENT ON COLUMN special_roles.capabilities IS 'Array capability keys yang dimiliki role ini';
+
+-- User Special Roles junction table
+CREATE TABLE user_special_roles (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    special_role_id UUID NOT NULL REFERENCES special_roles(id) ON DELETE CASCADE,
+    assigned_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    PRIMARY KEY (user_id, special_role_id)
+);
+
+CREATE INDEX idx_user_special_roles_role ON user_special_roles(special_role_id);
+CREATE INDEX idx_user_special_roles_user ON user_special_roles(user_id);
+
+COMMENT ON TABLE user_special_roles IS 'Relasi many-to-many user dan special roles';
+COMMENT ON COLUMN user_special_roles.assigned_by IS 'Admin yang meng-assign role ini ke user';
+
+-- Trigger for updated_at
+CREATE TRIGGER trg_special_roles_updated_at 
+    BEFORE UPDATE ON special_roles 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();
+
+-- Insert sample special roles
+INSERT INTO special_roles (nama, description, color, capabilities) VALUES
+('Moderator Konten', 'Dapat memoderasi dan mengelola portfolio', '#f97316', ARRAY['portfolios', 'moderation']),
+('Pengelola Akademik', 'Mengelola data jurusan, kelas, dan tahun ajaran', '#06b6d4', ARRAY['majors', 'classes', 'academic_years']),
+('Penilai Portfolio', 'Menilai portfolio siswa', '#eab308', ARRAY['assessments', 'assessment_metrics']),
+('Super Moderator', 'Akses hampir semua fitur admin', '#8b5cf6', ARRAY['dashboard', 'portfolios', 'moderation', 'assessments', 'assessment_metrics', 'tags', 'series', 'feedback'])
+ON CONFLICT (nama) DO NOTHING;

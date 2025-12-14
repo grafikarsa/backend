@@ -59,7 +59,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userRepo, authRepo, jwtService)
 	userHandler := handler.NewUserHandler(userRepo, followRepo, notificationService)
-	profileHandler := handler.NewProfileHandler(userRepo)
+	profileHandler := handler.NewProfileHandler(userRepo, adminRepo)
 	portfolioHandler := handler.NewPortfolioHandler(portfolioRepo, userRepo, notificationService)
 	contentBlockHandler := handler.NewContentBlockHandler(portfolioRepo)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, portfolioRepo, notificationService)
@@ -74,6 +74,7 @@ func main() {
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
+	capMiddleware := middleware.NewCapabilityMiddleware(adminRepo)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -162,6 +163,7 @@ func main() {
 	// Public routes
 	api.Get("/jurusan", publicHandler.ListJurusan)
 	api.Get("/kelas", publicHandler.ListKelas)
+	api.Get("/series", publicHandler.ListSeries)
 
 	// Feed route
 	api.Get("/feed", authMiddleware.Required(), feedHandler.GetFeed)
@@ -186,77 +188,98 @@ func main() {
 	uploadRoutes.Delete("/*", authMiddleware.Required(), uploadHandler.Delete)
 	uploadRoutes.Get("/presign-view", authMiddleware.Required(), uploadHandler.PresignView)
 
-	// Admin routes
-	adminRoutes := api.Group("/admin", authMiddleware.Required(), authMiddleware.AdminOnly())
+	// Admin routes - base group with auth required
+	adminRoutes := api.Group("/admin", authMiddleware.Required())
 
-	// Admin - Jurusan
-	adminRoutes.Get("/jurusan", adminHandler.ListJurusan)
-	adminRoutes.Post("/jurusan", adminHandler.CreateJurusan)
-	adminRoutes.Patch("/jurusan/:id", adminHandler.UpdateJurusan)
-	adminRoutes.Delete("/jurusan/:id", adminHandler.DeleteJurusan)
+	// Admin - Dashboard (requires dashboard capability)
+	adminRoutes.Get("/dashboard/stats", capMiddleware.RequireCapability("dashboard"), adminHandler.GetDashboardStats)
 
-	// Admin - Tahun Ajaran
-	adminRoutes.Get("/tahun-ajaran", adminHandler.ListTahunAjaran)
-	adminRoutes.Post("/tahun-ajaran", adminHandler.CreateTahunAjaran)
-	adminRoutes.Patch("/tahun-ajaran/:id", adminHandler.UpdateTahunAjaran)
-	adminRoutes.Delete("/tahun-ajaran/:id", adminHandler.DeleteTahunAjaran)
+	// Admin - Jurusan (requires majors capability)
+	adminRoutes.Get("/jurusan", capMiddleware.RequireCapability("majors"), adminHandler.ListJurusan)
+	adminRoutes.Post("/jurusan", capMiddleware.RequireCapability("majors"), adminHandler.CreateJurusan)
+	adminRoutes.Patch("/jurusan/:id", capMiddleware.RequireCapability("majors"), adminHandler.UpdateJurusan)
+	adminRoutes.Delete("/jurusan/:id", capMiddleware.RequireCapability("majors"), adminHandler.DeleteJurusan)
 
-	// Admin - Kelas
-	adminRoutes.Get("/kelas", adminHandler.ListKelas)
-	adminRoutes.Post("/kelas", adminHandler.CreateKelas)
-	adminRoutes.Patch("/kelas/:id", adminHandler.UpdateKelas)
-	adminRoutes.Delete("/kelas/:id", adminHandler.DeleteKelas)
-	adminRoutes.Get("/kelas/:id/students", adminHandler.GetKelasStudents)
+	// Admin - Tahun Ajaran (requires academic_years capability)
+	adminRoutes.Get("/tahun-ajaran", capMiddleware.RequireCapability("academic_years"), adminHandler.ListTahunAjaran)
+	adminRoutes.Post("/tahun-ajaran", capMiddleware.RequireCapability("academic_years"), adminHandler.CreateTahunAjaran)
+	adminRoutes.Patch("/tahun-ajaran/:id", capMiddleware.RequireCapability("academic_years"), adminHandler.UpdateTahunAjaran)
+	adminRoutes.Delete("/tahun-ajaran/:id", capMiddleware.RequireCapability("academic_years"), adminHandler.DeleteTahunAjaran)
 
-	// Admin - Tags
-	adminRoutes.Get("/tags", adminHandler.ListTags)
-	adminRoutes.Post("/tags", adminHandler.CreateTag)
-	adminRoutes.Patch("/tags/:id", adminHandler.UpdateTag)
-	adminRoutes.Delete("/tags/:id", adminHandler.DeleteTag)
+	// Admin - Kelas (requires classes capability)
+	adminRoutes.Get("/kelas", capMiddleware.RequireCapability("classes"), adminHandler.ListKelas)
+	adminRoutes.Post("/kelas", capMiddleware.RequireCapability("classes"), adminHandler.CreateKelas)
+	adminRoutes.Patch("/kelas/:id", capMiddleware.RequireCapability("classes"), adminHandler.UpdateKelas)
+	adminRoutes.Delete("/kelas/:id", capMiddleware.RequireCapability("classes"), adminHandler.DeleteKelas)
+	adminRoutes.Get("/kelas/:id/students", capMiddleware.RequireCapability("classes"), adminHandler.GetKelasStudents)
 
-	// Admin - Users
-	adminRoutes.Get("/users", adminHandler.ListUsers)
-	adminRoutes.Get("/users/check-username", adminHandler.CheckUsername)
-	adminRoutes.Get("/users/check-email", adminHandler.CheckEmail)
-	adminRoutes.Post("/users", adminHandler.CreateUser)
-	adminRoutes.Get("/users/:id", adminHandler.GetUser)
-	adminRoutes.Patch("/users/:id", adminHandler.UpdateUser)
-	adminRoutes.Patch("/users/:id/password", adminHandler.ResetUserPassword)
-	adminRoutes.Delete("/users/:id", adminHandler.DeleteUser)
-	adminRoutes.Post("/users/:id/deactivate", adminHandler.DeactivateUser)
-	adminRoutes.Post("/users/:id/activate", adminHandler.ActivateUser)
+	// Admin - Tags (requires tags capability)
+	adminRoutes.Get("/tags", capMiddleware.RequireCapability("tags"), adminHandler.ListTags)
+	adminRoutes.Post("/tags", capMiddleware.RequireCapability("tags"), adminHandler.CreateTag)
+	adminRoutes.Patch("/tags/:id", capMiddleware.RequireCapability("tags"), adminHandler.UpdateTag)
+	adminRoutes.Delete("/tags/:id", capMiddleware.RequireCapability("tags"), adminHandler.DeleteTag)
 
-	// Admin - Portfolios
-	adminRoutes.Get("/portfolios", adminHandler.ListAllPortfolios)
-	adminRoutes.Get("/portfolios/pending", adminHandler.ListPendingPortfolios)
-	adminRoutes.Get("/portfolios/:id", adminHandler.GetPortfolio)
-	adminRoutes.Patch("/portfolios/:id", adminHandler.UpdatePortfolio)
-	adminRoutes.Delete("/portfolios/:id", adminHandler.DeletePortfolio)
-	adminRoutes.Post("/portfolios/:id/approve", adminHandler.ApprovePortfolio)
-	adminRoutes.Post("/portfolios/:id/reject", adminHandler.RejectPortfolio)
+	// Admin - Series (requires series capability)
+	adminRoutes.Get("/series", capMiddleware.RequireCapability("series"), adminHandler.ListSeries)
+	adminRoutes.Post("/series", capMiddleware.RequireCapability("series"), adminHandler.CreateSeries)
+	adminRoutes.Patch("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.UpdateSeries)
+	adminRoutes.Delete("/series/:id", capMiddleware.RequireCapability("series"), adminHandler.DeleteSeries)
 
-	// Admin - Dashboard
-	adminRoutes.Get("/dashboard/stats", adminHandler.GetDashboardStats)
+	// Admin - Users (requires users capability)
+	adminRoutes.Get("/users", capMiddleware.RequireCapability("users"), adminHandler.ListUsers)
+	adminRoutes.Get("/users/check-username", capMiddleware.RequireCapability("users"), adminHandler.CheckUsername)
+	adminRoutes.Get("/users/check-email", capMiddleware.RequireCapability("users"), adminHandler.CheckEmail)
+	adminRoutes.Post("/users", capMiddleware.RequireCapability("users"), adminHandler.CreateUser)
+	adminRoutes.Get("/users/:id", capMiddleware.RequireCapability("users"), adminHandler.GetUser)
+	adminRoutes.Patch("/users/:id", capMiddleware.RequireCapability("users"), adminHandler.UpdateUser)
+	adminRoutes.Patch("/users/:id/password", capMiddleware.RequireCapability("users"), adminHandler.ResetUserPassword)
+	adminRoutes.Delete("/users/:id", capMiddleware.RequireCapability("users"), adminHandler.DeleteUser)
+	adminRoutes.Post("/users/:id/deactivate", capMiddleware.RequireCapability("users"), adminHandler.DeactivateUser)
+	adminRoutes.Post("/users/:id/activate", capMiddleware.RequireCapability("users"), adminHandler.ActivateUser)
 
-	// Admin - Feedback
-	adminRoutes.Get("/feedback", feedbackHandler.AdminListFeedback)
-	adminRoutes.Get("/feedback/stats", feedbackHandler.AdminGetFeedbackStats)
-	adminRoutes.Get("/feedback/:id", feedbackHandler.AdminGetFeedback)
-	adminRoutes.Patch("/feedback/:id", feedbackHandler.AdminUpdateFeedback)
-	adminRoutes.Delete("/feedback/:id", feedbackHandler.AdminDeleteFeedback)
+	// Admin - User Special Roles (requires users capability)
+	adminRoutes.Get("/users/:id/special-roles", capMiddleware.RequireCapability("users"), adminHandler.GetUserSpecialRoles)
+	adminRoutes.Put("/users/:id/special-roles", capMiddleware.RequireCapability("users"), adminHandler.UpdateUserSpecialRoles)
 
-	// Admin - Assessment Metrics
-	adminRoutes.Get("/assessment-metrics", assessmentHandler.ListMetrics)
-	adminRoutes.Post("/assessment-metrics", assessmentHandler.CreateMetric)
-	adminRoutes.Put("/assessment-metrics/reorder", assessmentHandler.ReorderMetrics)
-	adminRoutes.Patch("/assessment-metrics/:id", assessmentHandler.UpdateMetric)
-	adminRoutes.Delete("/assessment-metrics/:id", assessmentHandler.DeleteMetric)
+	// Admin - Portfolios (requires portfolios capability)
+	adminRoutes.Get("/portfolios", capMiddleware.RequireCapability("portfolios"), adminHandler.ListAllPortfolios)
+	adminRoutes.Get("/portfolios/pending", capMiddleware.RequireCapability("moderation"), adminHandler.ListPendingPortfolios)
+	adminRoutes.Get("/portfolios/:id", capMiddleware.RequireCapability("portfolios"), adminHandler.GetPortfolio)
+	adminRoutes.Patch("/portfolios/:id", capMiddleware.RequireCapability("portfolios"), adminHandler.UpdatePortfolio)
+	adminRoutes.Delete("/portfolios/:id", capMiddleware.RequireCapability("portfolios"), adminHandler.DeletePortfolio)
+	adminRoutes.Post("/portfolios/:id/approve", capMiddleware.RequireCapability("moderation"), adminHandler.ApprovePortfolio)
+	adminRoutes.Post("/portfolios/:id/reject", capMiddleware.RequireCapability("moderation"), adminHandler.RejectPortfolio)
 
-	// Admin - Portfolio Assessments
-	adminRoutes.Get("/assessments", assessmentHandler.ListPortfoliosForAssessment)
-	adminRoutes.Get("/assessments/:portfolio_id", assessmentHandler.GetAssessment)
-	adminRoutes.Post("/assessments/:portfolio_id", assessmentHandler.CreateOrUpdateAssessment)
-	adminRoutes.Delete("/assessments/:portfolio_id", assessmentHandler.DeleteAssessment)
+	// Admin - Feedback (requires feedback capability)
+	adminRoutes.Get("/feedback", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminListFeedback)
+	adminRoutes.Get("/feedback/stats", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminGetFeedbackStats)
+	adminRoutes.Get("/feedback/:id", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminGetFeedback)
+	adminRoutes.Patch("/feedback/:id", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminUpdateFeedback)
+	adminRoutes.Delete("/feedback/:id", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminDeleteFeedback)
+
+	// Admin - Assessment Metrics (requires assessment_metrics capability)
+	adminRoutes.Get("/assessment-metrics", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.ListMetrics)
+	adminRoutes.Post("/assessment-metrics", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.CreateMetric)
+	adminRoutes.Put("/assessment-metrics/reorder", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.ReorderMetrics)
+	adminRoutes.Patch("/assessment-metrics/:id", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.UpdateMetric)
+	adminRoutes.Delete("/assessment-metrics/:id", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.DeleteMetric)
+
+	// Admin - Portfolio Assessments (requires assessments capability)
+	adminRoutes.Get("/assessments", capMiddleware.RequireCapability("assessments"), assessmentHandler.ListPortfoliosForAssessment)
+	adminRoutes.Get("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.GetAssessment)
+	adminRoutes.Post("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.CreateOrUpdateAssessment)
+	adminRoutes.Delete("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.DeleteAssessment)
+
+	// Admin - Special Roles (requires special_roles capability - admin only by default)
+	adminRoutes.Get("/special-roles", capMiddleware.RequireCapability("special_roles"), adminHandler.ListSpecialRoles)
+	adminRoutes.Get("/special-roles/active", capMiddleware.RequireCapability("special_roles"), adminHandler.GetActiveSpecialRoles)
+	adminRoutes.Get("/special-roles/capabilities", capMiddleware.RequireCapability("special_roles"), adminHandler.GetCapabilities)
+	adminRoutes.Post("/special-roles", capMiddleware.RequireCapability("special_roles"), adminHandler.CreateSpecialRole)
+	adminRoutes.Get("/special-roles/:id", capMiddleware.RequireCapability("special_roles"), adminHandler.GetSpecialRole)
+	adminRoutes.Patch("/special-roles/:id", capMiddleware.RequireCapability("special_roles"), adminHandler.UpdateSpecialRole)
+	adminRoutes.Delete("/special-roles/:id", capMiddleware.RequireCapability("special_roles"), adminHandler.DeleteSpecialRole)
+	adminRoutes.Post("/special-roles/:id/users", capMiddleware.RequireCapability("special_roles"), adminHandler.AssignUsersToRole)
+	adminRoutes.Delete("/special-roles/:id/users/:userId", capMiddleware.RequireCapability("special_roles"), adminHandler.RemoveUserFromRole)
 
 	// Public Feedback route (auth optional)
 	api.Post("/feedback", authMiddleware.Optional(), feedbackHandler.CreateFeedback)

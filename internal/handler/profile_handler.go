@@ -10,11 +10,12 @@ import (
 )
 
 type ProfileHandler struct {
-	userRepo *repository.UserRepository
+	userRepo  *repository.UserRepository
+	adminRepo *repository.AdminRepository
 }
 
-func NewProfileHandler(userRepo *repository.UserRepository) *ProfileHandler {
-	return &ProfileHandler{userRepo: userRepo}
+func NewProfileHandler(userRepo *repository.UserRepository, adminRepo *repository.AdminRepository) *ProfileHandler {
+	return &ProfileHandler{userRepo: userRepo, adminRepo: adminRepo}
 }
 
 func (h *ProfileHandler) GetMe(c *fiber.Ctx) error {
@@ -76,6 +77,23 @@ func (h *ProfileHandler) GetMe(c *fiber.Ctx) error {
 		if user.Kelas.Jurusan != nil {
 			profileDTO.Jurusan = &dto.JurusanDTO{ID: user.Kelas.Jurusan.ID, Nama: user.Kelas.Jurusan.Nama}
 		}
+	}
+
+	// Get special roles and capabilities
+	if h.adminRepo != nil {
+		specialRoles, _ := h.adminRepo.GetUserSpecialRoles(user.ID)
+		for _, sr := range specialRoles {
+			profileDTO.SpecialRoles = append(profileDTO.SpecialRoles, dto.ProfileSpecialRole{
+				ID:           sr.ID,
+				Nama:         sr.Nama,
+				Color:        sr.Color,
+				Capabilities: []string(sr.Capabilities),
+				IsActive:     sr.IsActive,
+			})
+		}
+
+		capabilities, _ := h.adminRepo.GetUserCapabilities(user.ID)
+		profileDTO.Capabilities = capabilities
 	}
 
 	return c.JSON(dto.SuccessResponse(profileDTO, ""))

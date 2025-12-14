@@ -20,7 +20,7 @@ func (r *PortfolioRepository) Create(portfolio *domain.Portfolio) error {
 
 func (r *PortfolioRepository) FindByID(id uuid.UUID) (*domain.Portfolio, error) {
 	var portfolio domain.Portfolio
-	err := r.db.Preload("User.Kelas.Jurusan").Preload("Tags").Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
+	err := r.db.Preload("User.Kelas.Jurusan").Preload("Tags").Preload("Series").Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
 		return db.Order("block_order ASC")
 	}).Where("id = ? AND deleted_at IS NULL", id).First(&portfolio).Error
 	if err != nil {
@@ -31,7 +31,7 @@ func (r *PortfolioRepository) FindByID(id uuid.UUID) (*domain.Portfolio, error) 
 
 func (r *PortfolioRepository) FindBySlugAndUserID(slug string, userID uuid.UUID) (*domain.Portfolio, error) {
 	var portfolio domain.Portfolio
-	err := r.db.Preload("User.Kelas.Jurusan").Preload("Tags").Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
+	err := r.db.Preload("User.Kelas.Jurusan").Preload("Tags").Preload("Series").Preload("ContentBlocks", func(db *gorm.DB) *gorm.DB {
 		return db.Order("block_order ASC")
 	}).Where("slug = ? AND user_id = ? AND deleted_at IS NULL", slug, userID).First(&portfolio).Error
 	if err != nil {
@@ -193,6 +193,29 @@ func (r *PortfolioRepository) UpdateTags(portfolioID uuid.UUID, tagIDs []uuid.UU
 				})
 			}
 			if err := tx.Create(&tags).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *PortfolioRepository) UpdateSeries(portfolioID uuid.UUID, seriesIDs []uuid.UUID) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// Delete existing series
+		if err := tx.Where("portfolio_id = ?", portfolioID).Delete(&domain.PortfolioSeries{}).Error; err != nil {
+			return err
+		}
+		// Insert new series
+		if len(seriesIDs) > 0 {
+			var series []domain.PortfolioSeries
+			for _, seriesID := range seriesIDs {
+				series = append(series, domain.PortfolioSeries{
+					PortfolioID: portfolioID,
+					SeriesID:    seriesID,
+				})
+			}
+			if err := tx.Create(&series).Error; err != nil {
 				return err
 			}
 		}

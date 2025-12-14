@@ -288,6 +288,10 @@ func (h *PortfolioHandler) Create(c *fiber.Ctx) error {
 		h.portfolioRepo.UpdateTags(portfolio.ID, req.TagIDs)
 	}
 
+	if len(req.SeriesIDs) > 0 {
+		h.portfolioRepo.UpdateSeries(portfolio.ID, req.SeriesIDs)
+	}
+
 	portfolio, _ = h.portfolioRepo.FindByID(portfolio.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse(h.toPortfolioDetailDTO(portfolio, currentUserID), "Portfolio berhasil dibuat"))
@@ -339,6 +343,10 @@ func (h *PortfolioHandler) Update(c *fiber.Ctx) error {
 
 	if req.TagIDs != nil {
 		h.portfolioRepo.UpdateTags(portfolio.ID, req.TagIDs)
+	}
+
+	if req.SeriesIDs != nil {
+		h.portfolioRepo.UpdateSeries(portfolio.ID, req.SeriesIDs)
 	}
 
 	return c.JSON(dto.SuccessResponse(map[string]interface{}{
@@ -625,6 +633,10 @@ func (h *PortfolioHandler) toPortfolioDetailDTO(p *domain.Portfolio, currentUser
 
 	for _, t := range p.Tags {
 		pDTO.Tags = append(pDTO.Tags, dto.TagDTO{ID: t.ID, Nama: t.Nama})
+	}
+
+	for _, s := range p.Series {
+		pDTO.Series = append(pDTO.Series, dto.SeriesDTO{ID: s.ID, Nama: s.Nama, IsActive: s.IsActive, CreatedAt: s.CreatedAt})
 	}
 
 	for _, b := range p.ContentBlocks {
