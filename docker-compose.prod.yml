@@ -20,7 +20,12 @@ services:
     env_file:
       - .env
     environment:
-      - APP_ENV=production
+      # IMPORTANT: These MUST override any localhost values from .env
+      APP_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PRESIGN_HOST: ${MINIO_PRESIGN_HOST:-localhost:9000}
     depends_on:
       postgres:
         condition: service_healthy
