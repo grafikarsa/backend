@@ -42,7 +42,7 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 
 	presignClient, err := minio.New(presignEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(minioCfg.AccessKey, minioCfg.SecretKey, ""),
-		Secure: minioCfg.UseSSL,
+		Secure: minioCfg.PresignUseSSL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO presign client: %w", err)
