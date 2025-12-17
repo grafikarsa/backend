@@ -52,21 +52,25 @@ func main() {
 	feedbackRepo := repository.NewFeedbackRepository(db)
 	assessmentRepo := repository.NewAssessmentRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
+	viewRepo := repository.NewViewRepository(db)
+	interestRepo := repository.NewInterestRepository(db)
+	feedRepo := repository.NewFeedRepository(db)
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
+	feedService := service.NewFeedService(portfolioRepo, followRepo, viewRepo, interestRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userRepo, authRepo, jwtService)
 	userHandler := handler.NewUserHandler(userRepo, followRepo, notificationService)
 	profileHandler := handler.NewProfileHandler(userRepo, adminRepo)
-	portfolioHandler := handler.NewPortfolioHandler(portfolioRepo, userRepo, notificationService)
+	portfolioHandler := handler.NewPortfolioHandler(portfolioRepo, userRepo, viewRepo, interestRepo, notificationService)
 	contentBlockHandler := handler.NewContentBlockHandler(portfolioRepo)
 	adminHandler := handler.NewAdminHandler(adminRepo, userRepo, portfolioRepo, notificationService)
 	uploadHandler := handler.NewUploadHandler(minioClient, userRepo, portfolioRepo)
 	tagHandler := handler.NewTagHandler(adminRepo)
 	publicHandler := handler.NewPublicHandler(adminRepo, userRepo)
-	feedHandler := handler.NewFeedHandler(portfolioRepo, followRepo)
+	feedHandler := handler.NewFeedHandler(feedRepo, feedService, interestRepo, userRepo)
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo)
 	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
@@ -169,8 +173,10 @@ func main() {
 	api.Get("/top-students", publicHandler.GetTopStudents)
 	api.Get("/top-projects", publicHandler.GetTopProjects)
 
-	// Feed route
-	api.Get("/feed", authMiddleware.Required(), feedHandler.GetFeed)
+	// Feed routes
+	api.Get("/feed", authMiddleware.Optional(), feedHandler.GetFeed)
+	api.Get("/feed/preferences", authMiddleware.Required(), feedHandler.GetFeedPreferences)
+	api.Put("/feed/preferences", authMiddleware.Required(), feedHandler.UpdateFeedPreferences)
 
 	// Notification routes
 	notifRoutes := api.Group("/notifications", authMiddleware.Required())

@@ -521,3 +521,93 @@ type UserSpecialRole struct {
 }
 
 func (UserSpecialRole) TableName() string { return "user_special_roles" }
+
+// ============================================================================
+// SMART FEED ALGORITHM MODELS
+// ============================================================================
+
+// FeedAlgorithm type untuk pilihan algoritma feed
+type FeedAlgorithm string
+
+const (
+	FeedAlgorithmSmart     FeedAlgorithm = "smart"
+	FeedAlgorithmRecent    FeedAlgorithm = "recent"
+	FeedAlgorithmFollowing FeedAlgorithm = "following"
+)
+
+// PortfolioView - Tracking view portfolio untuk feed algorithm
+type PortfolioView struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	PortfolioID uuid.UUID  `gorm:"type:uuid;not null" json:"portfolio_id"`
+	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
+	SessionID   *string    `gorm:"type:varchar(64)" json:"session_id,omitempty"`
+	ViewedAt    time.Time  `gorm:"not null;default:now()" json:"viewed_at"`
+	Portfolio   *Portfolio `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
+	User        *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (PortfolioView) TableName() string { return "portfolio_views" }
+
+// UserInterest - Profil interest user dari aktivitas like
+type UserInterest struct {
+	UserID       uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	LikedTags    JSONB     `gorm:"type:jsonb;not null;default:'{}'" json:"liked_tags"`
+	LikedJurusan JSONB     `gorm:"type:jsonb;not null;default:'{}'" json:"liked_jurusan"`
+	TotalLikes   int       `gorm:"not null;default:0" json:"total_likes"`
+	UpdatedAt    time.Time `gorm:"not null;default:now()" json:"updated_at"`
+	User         *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (UserInterest) TableName() string { return "user_interests" }
+
+// UserFeedPreference - Preferensi algoritma feed per user
+type UserFeedPreference struct {
+	UserID    uuid.UUID     `gorm:"type:uuid;primaryKey" json:"user_id"`
+	Algorithm FeedAlgorithm `gorm:"type:varchar(20);not null;default:'smart'" json:"algorithm"`
+	UpdatedAt time.Time     `gorm:"not null;default:now()" json:"updated_at"`
+	User      *User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (UserFeedPreference) TableName() string { return "user_feed_preferences" }
+
+// ============================================================================
+// FEED SERVICE TYPES (non-persisted)
+// ============================================================================
+
+// RankingWeights - Bobot untuk setiap signal dalam ranking
+type RankingWeights struct {
+	Following  float64 // 0.30
+	Recency    float64 // 0.25
+	Engagement float64 // 0.20
+	Relevance  float64 // 0.15
+	Quality    float64 // 0.10
+}
+
+// DefaultRankingWeights returns default weights for ranking calculation
+func DefaultRankingWeights() RankingWeights {
+	return RankingWeights{
+		Following:  0.30,
+		Recency:    0.25,
+		Engagement: 0.20,
+		Relevance:  0.15,
+		Quality:    0.10,
+	}
+}
+
+// SignalScores - Skor untuk setiap signal
+type SignalScores struct {
+	Following  float64 `json:"following"`
+	Recency    float64 `json:"recency"`
+	Engagement float64 `json:"engagement"`
+	Relevance  float64 `json:"relevance"`
+	Quality    float64 `json:"quality"`
+}
+
+// Calculate menghitung total ranking score dari signal scores
+func (s SignalScores) Calculate(weights RankingWeights) float64 {
+	return s.Following*weights.Following +
+		s.Recency*weights.Recency +
+		s.Engagement*weights.Engagement +
+		s.Relevance*weights.Relevance +
+		s.Quality*weights.Quality
+}

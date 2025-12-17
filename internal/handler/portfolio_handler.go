@@ -16,13 +16,17 @@ import (
 type PortfolioHandler struct {
 	portfolioRepo *repository.PortfolioRepository
 	userRepo      *repository.UserRepository
+	viewRepo      *repository.ViewRepository
+	interestRepo  *repository.InterestRepository
 	notifService  *service.NotificationService
 }
 
-func NewPortfolioHandler(portfolioRepo *repository.PortfolioRepository, userRepo *repository.UserRepository, notifService *service.NotificationService) *PortfolioHandler {
+func NewPortfolioHandler(portfolioRepo *repository.PortfolioRepository, userRepo *repository.UserRepository, viewRepo *repository.ViewRepository, interestRepo *repository.InterestRepository, notifService *service.NotificationService) *PortfolioHandler {
 	return &PortfolioHandler{
 		portfolioRepo: portfolioRepo,
 		userRepo:      userRepo,
+		viewRepo:      viewRepo,
+		interestRepo:  interestRepo,
 		notifService:  notifService,
 	}
 }
@@ -153,6 +157,17 @@ func (h *PortfolioHandler) GetBySlug(c *fiber.Ctx) error {
 				"PORTFOLIO_NOT_FOUND", "Portfolio tidak ditemukan",
 			))
 		}
+	}
+
+	// Record view for published portfolios
+	if portfolio.Status == domain.StatusPublished && h.viewRepo != nil {
+		sessionID := c.Get("X-Session-ID")
+		var sessionPtr *string
+		if sessionID != "" {
+			sessionPtr = &sessionID
+		}
+		// Record view asynchronously to not block response
+		go h.viewRepo.RecordView(portfolio.ID, currentUserID, sessionPtr)
 	}
 
 	return c.JSON(dto.SuccessResponse(h.toPortfolioDetailDTO(portfolio, currentUserID), ""))
@@ -548,11 +563,35 @@ func (h *PortfolioHandler) Like(c *fiber.Ctx) error {
 		))
 	}
 
+	// Get portfolio for interest tracking and notification
+	portfolio, _ := h.portfolioRepo.FindByID(id)
+
+	// Update user interest profile (async)
+	if h.interestRepo != nil && portfolio != nil {
+		go func() {
+			// Extract tag IDs from portfolio
+			var tagIDs []uuid.UUID
+			for _, tag := range portfolio.Tags {
+				tagIDs = append(tagIDs, tag.ID)
+			}
+			if len(tagIDs) > 0 {
+				h.interestRepo.UpdateTagInterest(*userID, tagIDs)
+			}
+
+			// Update jurusan interest if portfolio owner has kelas
+			if portfolio.User != nil && portfolio.User.Kelas != nil {
+				h.interestRepo.UpdateJurusanInterest(*userID, portfolio.User.Kelas.JurusanID)
+			}
+
+			// Increment total likes
+			h.interestRepo.IncrementTotalLikes(*userID)
+		}()
+	}
+
 	// Send notification to portfolio owner
-	if h.notifService != nil {
+	if h.notifService != nil && portfolio != nil {
 		liker, _ := h.userRepo.FindByID(*userID)
-		portfolio, _ := h.portfolioRepo.FindByID(id)
-		if liker != nil && portfolio != nil {
+		if liker != nil {
 			_ = h.notifService.NotifyPortfolioLiked(liker, portfolio)
 		}
 	}
@@ -580,10 +619,35 @@ func (h *PortfolioHandler) Unlike(c *fiber.Ctx) error {
 		))
 	}
 
+	// Get portfolio for interest decrement before unlike
+	portfolio, _ := h.portfolioRepo.FindByID(id)
+
 	if err := h.portfolioRepo.Unlike(*userID, id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(
 			"INTERNAL_ERROR", "Gagal unlike portfolio",
 		))
+	}
+
+	// Decrement user interest profile (async)
+	if h.interestRepo != nil && portfolio != nil {
+		go func() {
+			// Extract tag IDs from portfolio
+			var tagIDs []uuid.UUID
+			for _, tag := range portfolio.Tags {
+				tagIDs = append(tagIDs, tag.ID)
+			}
+			if len(tagIDs) > 0 {
+				h.interestRepo.DecrementTagInterest(*userID, tagIDs)
+			}
+
+			// Decrement jurusan interest if portfolio owner has kelas
+			if portfolio.User != nil && portfolio.User.Kelas != nil {
+				h.interestRepo.DecrementJurusanInterest(*userID, portfolio.User.Kelas.JurusanID)
+			}
+
+			// Decrement total likes
+			h.interestRepo.DecrementTotalLikes(*userID)
+		}()
 	}
 
 	likeCount, _ := h.portfolioRepo.GetLikeCount(id)

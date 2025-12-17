@@ -993,3 +993,93 @@ INSERT INTO special_roles (nama, description, color, capabilities) VALUES
 ('Penilai Portfolio', 'Menilai portfolio siswa', '#eab308', ARRAY['assessments', 'assessment_metrics']),
 ('Super Moderator', 'Akses hampir semua fitur admin', '#8b5cf6', ARRAY['dashboard', 'portfolios', 'moderation', 'assessments', 'assessment_metrics', 'tags', 'series', 'feedback'])
 ON CONFLICT (nama) DO NOTHING;
+
+-- ============================================================================
+-- SMART FEED ALGORITHM
+-- ============================================================================
+
+-- Portfolio Views Tracking
+CREATE TABLE portfolio_views (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    session_id VARCHAR(64),
+    viewed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT portfolio_views_unique_user UNIQUE (portfolio_id, user_id),
+    CONSTRAINT portfolio_views_unique_session UNIQUE (portfolio_id, session_id),
+    CONSTRAINT portfolio_views_has_identifier CHECK (user_id IS NOT NULL OR session_id IS NOT NULL)
+);
+
+CREATE INDEX idx_portfolio_views_portfolio ON portfolio_views(portfolio_id);
+CREATE INDEX idx_portfolio_views_user ON portfolio_views(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX idx_portfolio_views_session ON portfolio_views(session_id) WHERE session_id IS NOT NULL;
+CREATE INDEX idx_portfolio_views_viewed_at ON portfolio_views(viewed_at DESC);
+
+COMMENT ON TABLE portfolio_views IS 'Tracking view portfolio untuk feed algorithm dan analytics';
+
+-- User Interests (auto-generated dari aktivitas)
+CREATE TABLE user_interests (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    liked_tags JSONB NOT NULL DEFAULT '{}',
+    liked_jurusan JSONB NOT NULL DEFAULT '{}',
+    total_likes INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_user_interests_updated ON user_interests(updated_at DESC);
+
+COMMENT ON TABLE user_interests IS 'Profil interest user dari aktivitas like';
+
+-- User Feed Preferences
+CREATE TABLE user_feed_preferences (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    algorithm VARCHAR(20) NOT NULL DEFAULT 'smart',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT user_feed_preferences_algorithm_valid CHECK (algorithm IN ('smart', 'recent', 'following'))
+);
+
+COMMENT ON TABLE user_feed_preferences IS 'Preferensi algoritma feed per user';
+
+-- Triggers for updated_at
+CREATE TRIGGER trg_user_interests_updated_at 
+    BEFORE UPDATE ON user_interests 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_user_feed_preferences_updated_at 
+    BEFORE UPDATE ON user_feed_preferences 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();
+
+-- Helper function: Get unique view count
+CREATE OR REPLACE FUNCTION get_portfolio_view_count(p_portfolio_id UUID)
+RETURNS BIGINT AS $$
+BEGIN
+    RETURN (
+        SELECT COUNT(DISTINCT COALESCE(user_id::text, session_id))
+        FROM portfolio_views
+        WHERE portfolio_id = p_portfolio_id
+    );
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Helper function: Get max engagement stats for normalization
+CREATE OR REPLACE FUNCTION get_max_engagement_stats()
+RETURNS TABLE (max_likes BIGINT, max_views BIGINT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COALESCE(MAX(like_count), 1)::BIGINT as max_likes,
+        COALESCE(MAX(view_count), 1)::BIGINT as max_views
+    FROM (
+        SELECT 
+            p.id,
+            (SELECT COUNT(*) FROM portfolio_likes WHERE portfolio_id = p.id) as like_count,
+            get_portfolio_view_count(p.id) as view_count
+        FROM portfolios p
+        WHERE p.status = 'published' AND p.deleted_at IS NULL
+    ) stats;
+END;
+$$ LANGUAGE plpgsql STABLE;
