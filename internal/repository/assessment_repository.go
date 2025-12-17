@@ -153,6 +153,39 @@ func (r *AssessmentRepository) ReplaceScores(assessmentID uuid.UUID, scores []do
 }
 
 // ============================================================================
+// ASSESSMENT STATS
+// ============================================================================
+
+type AssessmentStats struct {
+	TotalPublished int64 `json:"total_published"`
+	Assessed       int64 `json:"assessed"`
+	Pending        int64 `json:"pending"`
+}
+
+func (r *AssessmentRepository) GetAssessmentStats() (*AssessmentStats, error) {
+	var stats AssessmentStats
+
+	// Count total published portfolios
+	if err := r.db.Model(&domain.Portfolio{}).
+		Where("status = ? AND deleted_at IS NULL", domain.StatusPublished).
+		Count(&stats.TotalPublished).Error; err != nil {
+		return nil, err
+	}
+
+	// Count assessed portfolios
+	if err := r.db.Model(&domain.Portfolio{}).
+		Where("status = ? AND deleted_at IS NULL", domain.StatusPublished).
+		Where("EXISTS (SELECT 1 FROM portfolio_assessments pa WHERE pa.portfolio_id = portfolios.id)").
+		Count(&stats.Assessed).Error; err != nil {
+		return nil, err
+	}
+
+	stats.Pending = stats.TotalPublished - stats.Assessed
+
+	return &stats, nil
+}
+
+// ============================================================================
 // PORTFOLIO LIST FOR ASSESSMENT
 // ============================================================================
 

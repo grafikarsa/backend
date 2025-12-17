@@ -92,9 +92,17 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 	username := c.Params("username")
 	currentUserID := middleware.GetUserID(c)
+	isAdmin := middleware.GetUserRole(c) == "admin"
 
 	user, err := h.userRepo.FindByUsername(username)
 	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse(
+			"USER_NOT_FOUND", "User tidak ditemukan",
+		))
+	}
+
+	// Check if user is active - admin can still view inactive users
+	if !user.IsActive && !isAdmin {
 		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse(
 			"USER_NOT_FOUND", "User tidak ditemukan",
 		))
@@ -154,6 +162,7 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 		AvatarURL:      user.AvatarURL,
 		BannerURL:      user.BannerURL,
 		Role:           string(user.Role),
+		IsActive:       user.IsActive,
 		TahunMasuk:     user.TahunMasuk,
 		TahunLulus:     tahunLulus,
 		ClassHistory:   historyDTOs,
@@ -302,6 +311,13 @@ func (h *UserHandler) Follow(c *fiber.Ctx) error {
 		))
 	}
 
+	// Admin cannot follow users
+	if middleware.GetUserRole(c) == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse(
+			"FORBIDDEN", "Admin tidak dapat follow user",
+		))
+	}
+
 	username := c.Params("username")
 	targetUser, err := h.userRepo.FindByUsername(username)
 	if err != nil {
@@ -350,6 +366,13 @@ func (h *UserHandler) Unfollow(c *fiber.Ctx) error {
 	if currentUserID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse(
 			"UNAUTHORIZED", "User tidak terautentikasi",
+		))
+	}
+
+	// Admin cannot unfollow users
+	if middleware.GetUserRole(c) == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse(
+			"FORBIDDEN", "Admin tidak dapat unfollow user",
 		))
 	}
 

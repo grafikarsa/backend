@@ -611,3 +611,81 @@ func (s SignalScores) Calculate(weights RankingWeights) float64 {
 		s.Relevance*weights.Relevance +
 		s.Quality*weights.Quality
 }
+
+// ============================================================================
+// CHANGELOG MODELS
+// ============================================================================
+
+// ChangelogCategory enum
+type ChangelogCategory string
+
+const (
+	ChangelogCategoryAdded   ChangelogCategory = "added"
+	ChangelogCategoryUpdated ChangelogCategory = "updated"
+	ChangelogCategoryRemoved ChangelogCategory = "removed"
+	ChangelogCategoryFixed   ChangelogCategory = "fixed"
+)
+
+// Changelog - Main changelog entry
+type Changelog struct {
+	BaseModel
+	Version      string                 `gorm:"type:varchar(50);not null" json:"version"`
+	Title        string                 `gorm:"type:varchar(255);not null" json:"title"`
+	Description  *string                `gorm:"type:text" json:"description,omitempty"`
+	ReleaseDate  time.Time              `gorm:"type:date;not null;default:CURRENT_DATE" json:"release_date"`
+	IsPublished  bool                   `gorm:"not null;default:false" json:"is_published"`
+	CreatedBy    uuid.UUID              `gorm:"type:uuid;not null" json:"created_by"`
+	Creator      *User                  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	Sections     []ChangelogSection     `gorm:"foreignKey:ChangelogID" json:"sections,omitempty"`
+	Contributors []ChangelogContributor `gorm:"foreignKey:ChangelogID" json:"contributors,omitempty"`
+}
+
+func (Changelog) TableName() string { return "changelogs" }
+
+// ChangelogSection - Section within a changelog (added, updated, removed, fixed)
+type ChangelogSection struct {
+	ID           uuid.UUID               `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ChangelogID  uuid.UUID               `gorm:"type:uuid;not null" json:"changelog_id"`
+	Category     ChangelogCategory       `gorm:"type:varchar(20);not null" json:"category"`
+	SectionOrder int                     `gorm:"not null;default:0" json:"section_order"`
+	CreatedAt    time.Time               `gorm:"not null;default:now()" json:"created_at"`
+	Blocks       []ChangelogSectionBlock `gorm:"foreignKey:SectionID" json:"blocks,omitempty"`
+}
+
+func (ChangelogSection) TableName() string { return "changelog_sections" }
+
+// ChangelogSectionBlock - Content block within a section
+type ChangelogSectionBlock struct {
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	SectionID  uuid.UUID        `gorm:"type:uuid;not null" json:"section_id"`
+	BlockType  ContentBlockType `gorm:"type:varchar(20);not null" json:"block_type"`
+	BlockOrder int              `gorm:"not null;default:0" json:"block_order"`
+	Payload    JSONB            `gorm:"type:jsonb;not null;default:'{}'" json:"payload"`
+	CreatedAt  time.Time        `gorm:"not null;default:now()" json:"created_at"`
+	UpdatedAt  time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+}
+
+func (ChangelogSectionBlock) TableName() string { return "changelog_section_blocks" }
+
+// ChangelogContributor - User who contributed to a changelog
+type ChangelogContributor struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ChangelogID      uuid.UUID `gorm:"type:uuid;not null" json:"changelog_id"`
+	UserID           uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+	Contribution     string    `gorm:"type:varchar(255);not null" json:"contribution"`
+	ContributorOrder int       `gorm:"not null;default:0" json:"contributor_order"`
+	CreatedAt        time.Time `gorm:"not null;default:now()" json:"created_at"`
+	User             *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (ChangelogContributor) TableName() string { return "changelog_contributors" }
+
+// ChangelogRead - Track which changelogs have been read by users
+type ChangelogRead struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+	ChangelogID uuid.UUID `gorm:"type:uuid;not null" json:"changelog_id"`
+	ReadAt      time.Time `gorm:"not null;default:now()" json:"read_at"`
+}
+
+func (ChangelogRead) TableName() string { return "changelog_reads" }

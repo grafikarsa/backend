@@ -550,6 +550,13 @@ func (h *PortfolioHandler) Like(c *fiber.Ctx) error {
 		))
 	}
 
+	// Admin cannot like portfolios
+	if middleware.GetUserRole(c) == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse(
+			"FORBIDDEN", "Admin tidak dapat like portfolio",
+		))
+	}
+
 	isLiked, _ := h.portfolioRepo.IsLiked(*userID, id)
 	if isLiked {
 		return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse(
@@ -616,6 +623,13 @@ func (h *PortfolioHandler) Unlike(c *fiber.Ctx) error {
 	if userID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse(
 			"UNAUTHORIZED", "User tidak terautentikasi",
+		))
+	}
+
+	// Admin cannot unlike portfolios
+	if middleware.GetUserRole(c) == "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse(
+			"FORBIDDEN", "Admin tidak dapat unlike portfolio",
 		))
 	}
 

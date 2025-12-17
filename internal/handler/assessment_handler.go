@@ -22,6 +22,22 @@ func NewAssessmentHandler(assessmentRepo *repository.AssessmentRepository, portf
 }
 
 // ============================================================================
+// ASSESSMENT STATS HANDLER
+// ============================================================================
+
+// GetAssessmentStats - GET /admin/assessments/stats
+func (h *AssessmentHandler) GetAssessmentStats(c *fiber.Ctx) error {
+	stats, err := h.assessmentRepo.GetAssessmentStats()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(
+			"FETCH_FAILED", "Gagal mengambil statistik penilaian",
+		))
+	}
+
+	return c.JSON(dto.SuccessResponse(stats, ""))
+}
+
+// ============================================================================
 // ASSESSMENT METRICS HANDLERS
 // ============================================================================
 

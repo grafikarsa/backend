@@ -29,6 +29,7 @@ type UserDetailDTO struct {
 	AvatarURL      *string              `json:"avatar_url,omitempty"`
 	BannerURL      *string              `json:"banner_url,omitempty"`
 	Role           string               `json:"role"`
+	IsActive       bool                 `json:"is_active"`
 	TahunMasuk     *int                 `json:"tahun_masuk,omitempty"`
 	TahunLulus     *int                 `json:"tahun_lulus,omitempty"`
 	Kelas          *KelasDTO            `json:"kelas,omitempty"`

@@ -68,6 +68,7 @@ Semua response menggunakan format JSON dengan struktur konsisten:
 24. [Admin - Portfolio Assessments](#24-admin---portfolio-assessments)
 25. [Notifications](#25-notifications)
 26. [Admin - Special Roles](#26-admin---special-roles)
+27. [Changelog](#27-changelog)
 
 ---
 
@@ -5006,6 +5007,463 @@ Update special roles user (replace all).
 
 ---
 
+## 27. Changelog
+
+### GET /changelogs
+
+Daftar changelog yang sudah dipublish (publik).
+
+**Authentication:** None
+
+**Query Parameters:**
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| page | integer | Halaman | 1 |
+| limit | integer | Jumlah per halaman (max: 50) | 10 |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "version": "1.2.0",
+      "title": "Fitur Baru: Smart Feed",
+      "description": "Penambahan algoritma smart feed untuk rekomendasi portfolio",
+      "release_date": "2025-12-15",
+      "is_published": true,
+      "sections": [
+        {
+          "id": "section-uuid",
+          "category": "added",
+          "blocks": [
+            {
+              "id": "block-uuid",
+              "block_type": "text",
+              "payload": {
+                "content": "<p>Fitur smart feed dengan algoritma rekomendasi</p>"
+              }
+            }
+          ]
+        }
+      ],
+      "contributors": [
+        {
+          "id": "contrib-uuid",
+          "contribution": "Backend Development",
+          "user": {
+            "id": "user-uuid",
+            "username": "john_doe",
+            "nama": "John Doe",
+            "avatar_url": "https://..."
+          }
+        }
+      ],
+      "created_by": {
+        "id": "admin-uuid",
+        "username": "admin",
+        "nama": "Admin",
+        "avatar_url": "https://..."
+      },
+      "created_at": "2025-12-15T10:00:00Z",
+      "updated_at": "2025-12-15T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 5,
+    "total_pages": 1
+  }
+}
+```
+
+---
+
+### GET /changelogs/:id
+
+Detail changelog berdasarkan ID.
+
+**Authentication:** None
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "version": "1.2.0",
+    "title": "Fitur Baru: Smart Feed",
+    "description": "Penambahan algoritma smart feed",
+    "release_date": "2025-12-15",
+    "is_published": true,
+    "sections": [...],
+    "contributors": [...],
+    "created_by": {...},
+    "created_at": "2025-12-15T10:00:00Z",
+    "updated_at": "2025-12-15T10:00:00Z"
+  }
+}
+```
+
+**Error Response:**
+
+`404 Not Found`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Changelog tidak ditemukan"
+  }
+}
+```
+
+---
+
+### GET /changelogs/latest
+
+Ambil changelog terbaru yang sudah dipublish.
+
+**Authentication:** None
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "version": "1.2.0",
+    "title": "Fitur Baru: Smart Feed",
+    ...
+  }
+}
+```
+
+---
+
+### GET /changelogs/unread-count
+
+Jumlah changelog yang belum dibaca user.
+
+**Authentication:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "count": 3
+  }
+}
+```
+
+---
+
+### POST /changelogs/:id/mark-read
+
+Tandai changelog sebagai sudah dibaca.
+
+**Authentication:** Required
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Berhasil ditandai sebagai dibaca"
+}
+```
+
+---
+
+### POST /changelogs/mark-all-read
+
+Tandai semua changelog sebagai sudah dibaca.
+
+**Authentication:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Semua changelog ditandai sebagai dibaca"
+}
+```
+
+---
+
+### GET /admin/changelogs
+
+Daftar semua changelog (termasuk draft).
+
+**Authentication:** Required (Admin)
+
+**Query Parameters:**
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| page | integer | Halaman | 1 |
+| limit | integer | Jumlah per halaman (max: 100) | 20 |
+| search | string | Cari berdasarkan version/title | - |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "version": "1.2.0",
+      "title": "Fitur Baru: Smart Feed",
+      "description": "Penambahan algoritma smart feed",
+      "release_date": "2025-12-15",
+      "is_published": false,
+      "categories": ["added", "fixed"],
+      "created_at": "2025-12-15T10:00:00Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 10,
+    "total_pages": 1
+  }
+}
+```
+
+---
+
+### GET /admin/changelogs/:id
+
+Detail changelog untuk admin.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):** Sama dengan GET /changelogs/:id
+
+---
+
+### POST /admin/changelogs
+
+Buat changelog baru.
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "version": "1.2.0",
+  "title": "Fitur Baru: Smart Feed",
+  "description": "Penambahan algoritma smart feed untuk rekomendasi portfolio",
+  "release_date": "2025-12-15",
+  "sections": [
+    {
+      "category": "added",
+      "blocks": [
+        {
+          "block_type": "text",
+          "payload": {
+            "content": "<p>Fitur smart feed dengan algoritma rekomendasi</p>"
+          }
+        }
+      ]
+    },
+    {
+      "category": "fixed",
+      "blocks": [
+        {
+          "block_type": "text",
+          "payload": {
+            "content": "<p>Perbaikan bug pada halaman profil</p>"
+          }
+        }
+      ]
+    }
+  ],
+  "contributors": [
+    {
+      "user_id": "user-uuid",
+      "contribution": "Backend Development"
+    }
+  ]
+}
+```
+
+**Validation Rules:**
+- `version`: Wajib diisi
+- `title`: Wajib diisi
+- `sections`: Minimal 1 section, category harus salah satu dari: `added`, `updated`, `removed`, `fixed`
+- `contributors`: Minimal 1 contributor
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "version": "1.2.0",
+    "title": "Fitur Baru: Smart Feed",
+    ...
+  },
+  "message": "Changelog berhasil dibuat"
+}
+```
+
+**Error Response:**
+
+`400 Bad Request`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Minimal 1 section wajib diisi"
+  }
+}
+```
+
+---
+
+### PATCH /admin/changelogs/:id
+
+Update changelog.
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Request Body:**
+```json
+{
+  "version": "1.2.1",
+  "title": "Updated Title",
+  "description": "Updated description",
+  "release_date": "2025-12-16",
+  "sections": [...],
+  "contributors": [...]
+}
+```
+
+**Note:** Jika `sections` atau `contributors` disertakan, data lama akan dihapus dan diganti dengan data baru.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {...},
+  "message": "Changelog berhasil diupdate"
+}
+```
+
+---
+
+### DELETE /admin/changelogs/:id
+
+Hapus changelog (soft delete).
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Changelog berhasil dihapus"
+}
+```
+
+---
+
+### POST /admin/changelogs/:id/publish
+
+Publish changelog (ubah is_published menjadi true).
+
+**Authentication:** Required (Admin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Changelog berhasil dipublish"
+}
+```
+
+**Error Response:**
+
+`400 Bad Request`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ALREADY_PUBLISHED",
+    "message": "Changelog sudah dipublish"
+  }
+}
+```
+
+---
+
+### POST /admin/changelogs/:id/unpublish
+
+Unpublish changelog (ubah is_published menjadi false).
+
+*ion:** RequAdmin)
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| id | UUID | ID changelog |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Changelog berhasil di-unpublish"
+}
+```
+
+**Error Response:**
+
+`400 Bad Request`:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_PUBLISHED",
+    "message": "Changelog belum dipublish"
+  }
+}
+```
+
+---
+
 ## Error Codes Reference
 
 | Code | HTTP Status | Description |
@@ -5017,7 +5475,7 @@ Update special roles user (replace all).
 | `FORBIDDEN` | 403 | Tidak punya akses |
 | `NOT_FOUND` | 404 | Resource tidak ditemukan |
 | `USER_NOT_FOUND` | 404 | User tidak ditemukan |
-| `PORTFOLIO_NOT_FOUND` | 404 | Portfolio tidak ditemukan |
+| `PORTFOLIO_NOT_FO ND` | 404 | Portfolio tidak ditemukan |
 | `SESSION_NOT_FOUND` | 404 | Session tidak ditemukan |
 | `INVALID_CREDENTIALS` | 401 | Username/password salah |
 | `ACCOUNT_DISABLED` | 403 | Akun dinonaktifkan |
@@ -5049,5 +5507,10 @@ Update special roles user (replace all).
 | `DELETE_FAILED` | 500 | Gagal menghapus data |
 | `REORDER_FAILED` | 500 | Gagal mengubah urutan |
 | `INTERNAL_ERROR` | 500 | Server error |
+| `ALREADY_PUBLISHED` | 400 | Changelog sudah dipublish |
+| `NOT_PUBLISHED` | 400 | Changelog belum dipublish |
+| `MARK_READ_FAILED` | 500 | Gagal menandai sebagai dibaca |
+| `PUBLISH_FAILED` | 500 | Gagal mempublish |
+| `UNPUBLISH_FAILED` | 500 | Gagal meng-unpublish |
 
 ---

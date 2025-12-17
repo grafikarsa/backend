@@ -1083,3 +1083,113 @@ BEGIN
     ) stats;
 END;
 $$ LANGUAGE plpgsql STABLE;
+
+
+-- ============================================================================
+-- CHANGELOG
+-- ============================================================================
+
+-- Main changelog table
+CREATE TABLE changelogs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    version VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    release_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    is_published BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_changelogs_release_date ON changelogs(release_date DESC) WHERE deleted_at IS NULL;
+CREATE INDEX idx_changelogs_is_published ON changelogs(is_published) WHERE deleted_at IS NULL;
+CREATE INDEX idx_changelogs_deleted_at ON changelogs(deleted_at);
+
+COMMENT ON TABLE changelogs IS 'Changelog/release notes untuk update aplikasi';
+COMMENT ON COLUMN changelogs.version IS 'Versi release (contoh: 1.0.0, 1.2.0)';
+COMMENT ON COLUMN changelogs.is_published IS 'Status publish, hanya yang published yang tampil ke user';
+
+-- Changelog sections (added, updated, removed, fixed)
+CREATE TABLE changelog_sections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    changelog_id UUID NOT NULL REFERENCES changelogs(id) ON DELETE CASCADE,
+    category VARCHAR(20) NOT NULL,
+    section_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT changelog_sections_category_valid CHECK (category IN ('added', 'updated', 'removed', 'fixed')),
+    CONSTRAINT changelog_sections_order_positive CHECK (section_order >= 0)
+);
+
+CREATE INDEX idx_changelog_sections_changelog ON changelog_sections(changelog_id);
+CREATE INDEX idx_changelog_sections_order ON changelog_sections(changelog_id, section_order);
+
+COMMENT ON TABLE changelog_sections IS 'Section dalam changelog berdasarkan kategori perubahan';
+COMMENT ON COLUMN changelog_sections.category IS 'Kategori: added, updated, removed, fixed';
+
+-- Content blocks for each section
+CREATE TABLE changelog_section_blocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    section_id UUID NOT NULL REFERENCES changelog_sections(id) ON DELETE CASCADE,
+    block_type content_block_type NOT NULL,
+    block_order INTEGER NOT NULL DEFAULT 0,
+    payload JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT changelog_section_blocks_order_positive CHECK (block_order >= 0)
+);
+
+CREATE INDEX idx_changelog_section_blocks_section ON changelog_section_blocks(section_id);
+CREATE INDEX idx_changelog_section_blocks_order ON changelog_section_blocks(section_id, block_order);
+
+COMMENT ON TABLE changelog_section_blocks IS 'Content blocks untuk setiap section changelog';
+COMMENT ON COLUMN changelog_section_blocks.block_type IS 'Tipe block: text, image, dll';
+COMMENT ON COLUMN changelog_section_blocks.payload IS 'Konten block dalam format JSON';
+
+-- Contributors for each changelog
+CREATE TABLE changelog_contributors (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    changelog_id UUID NOT NULL REFERENCES changelogs(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id),
+    contribution VARCHAR(255) NOT NULL,
+    contributor_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT changelog_contributors_order_positive CHECK (contributor_order >= 0)
+);
+
+CREATE INDEX idx_changelog_contributors_changelog ON changelog_contributors(changelog_id);
+CREATE INDEX idx_changelog_contributors_user ON changelog_contributors(user_id);
+CREATE INDEX idx_changelog_contributors_order ON changelog_contributors(changelog_id, contributor_order);
+
+COMMENT ON TABLE changelog_contributors IS 'Kontributor untuk setiap changelog';
+COMMENT ON COLUMN changelog_contributors.contribution IS 'Deskripsi kontribusi (contoh: Backend Development)';
+
+-- Track which changelogs have been read by users (for "New" badge)
+CREATE TABLE changelog_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    changelog_id UUID NOT NULL REFERENCES changelogs(id) ON DELETE CASCADE,
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT changelog_reads_unique UNIQUE (user_id, changelog_id)
+);
+
+CREATE INDEX idx_changelog_reads_user ON changelog_reads(user_id);
+CREATE INDEX idx_changelog_reads_changelog ON changelog_reads(changelog_id);
+
+COMMENT ON TABLE changelog_reads IS 'Tracking changelog yang sudah dibaca user untuk badge "New"';
+
+-- Triggers for updated_at
+CREATE TRIGGER trg_changelogs_updated_at 
+    BEFORE UPDATE ON changelogs 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_changelog_section_blocks_updated_at 
+    BEFORE UPDATE ON changelog_section_blocks 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();

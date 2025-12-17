@@ -55,6 +55,7 @@ func main() {
 	viewRepo := repository.NewViewRepository(db)
 	interestRepo := repository.NewInterestRepository(db)
 	feedRepo := repository.NewFeedRepository(db)
+	changelogRepo := repository.NewChangelogRepository(db)
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
@@ -76,6 +77,7 @@ func main() {
 	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
 	notificationHandler := handler.NewNotificationHandler(notificationRepo)
 	importHandler := handler.NewImportHandler(adminRepo, userRepo)
+	changelogHandler := handler.NewChangelogHandler(changelogRepo, notificationService, userRepo)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -176,6 +178,15 @@ func main() {
 	// Feed routes
 	api.Get("/feed", authMiddleware.Optional(), feedHandler.GetFeed)
 	api.Get("/feed/preferences", authMiddleware.Required(), feedHandler.GetFeedPreferences)
+
+	// Changelog routes (public)
+	changelogRoutes := api.Group("/changelogs")
+	changelogRoutes.Get("/", authMiddleware.Optional(), changelogHandler.List)
+	changelogRoutes.Get("/latest", authMiddleware.Optional(), changelogHandler.GetLatest)
+	changelogRoutes.Get("/unread-count", authMiddleware.Required(), changelogHandler.GetUnreadCount)
+	changelogRoutes.Post("/mark-all-read", authMiddleware.Required(), changelogHandler.MarkAllAsRead)
+	changelogRoutes.Get("/:id", authMiddleware.Optional(), changelogHandler.GetByID)
+	changelogRoutes.Post("/:id/mark-read", authMiddleware.Required(), changelogHandler.MarkAsRead)
 	api.Put("/feed/preferences", authMiddleware.Required(), feedHandler.UpdateFeedPreferences)
 
 	// Notification routes
@@ -274,6 +285,15 @@ func main() {
 	adminRoutes.Patch("/feedback/:id", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminUpdateFeedback)
 	adminRoutes.Delete("/feedback/:id", capMiddleware.RequireCapability("feedback"), feedbackHandler.AdminDeleteFeedback)
 
+	// Admin - Changelogs (requires changelog capability)
+	adminRoutes.Get("/changelogs", capMiddleware.RequireCapability("changelog"), changelogHandler.AdminList)
+	adminRoutes.Get("/changelogs/:id", capMiddleware.RequireCapability("changelog"), changelogHandler.AdminGetByID)
+	adminRoutes.Post("/changelogs", capMiddleware.RequireCapability("changelog"), changelogHandler.Create)
+	adminRoutes.Patch("/changelogs/:id", capMiddleware.RequireCapability("changelog"), changelogHandler.Update)
+	adminRoutes.Delete("/changelogs/:id", capMiddleware.RequireCapability("changelog"), changelogHandler.Delete)
+	adminRoutes.Post("/changelogs/:id/publish", capMiddleware.RequireCapability("changelog"), changelogHandler.Publish)
+	adminRoutes.Post("/changelogs/:id/unpublish", capMiddleware.RequireCapability("changelog"), changelogHandler.Unpublish)
+
 	// Admin - Assessment Metrics (requires assessment_metrics capability)
 	adminRoutes.Get("/assessment-metrics", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.ListMetrics)
 	adminRoutes.Post("/assessment-metrics", capMiddleware.RequireCapability("assessment_metrics"), assessmentHandler.CreateMetric)
@@ -283,6 +303,7 @@ func main() {
 
 	// Admin - Portfolio Assessments (requires assessments capability)
 	adminRoutes.Get("/assessments", capMiddleware.RequireCapability("assessments"), assessmentHandler.ListPortfoliosForAssessment)
+	adminRoutes.Get("/assessments/stats", capMiddleware.RequireCapability("assessments"), assessmentHandler.GetAssessmentStats)
 	adminRoutes.Get("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.GetAssessment)
 	adminRoutes.Post("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.CreateOrUpdateAssessment)
 	adminRoutes.Delete("/assessments/:portfolio_id", capMiddleware.RequireCapability("assessments"), assessmentHandler.DeleteAssessment)
