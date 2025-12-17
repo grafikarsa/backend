@@ -180,6 +180,7 @@ func (h *FeedHandler) toFeedItemDTO(p *domain.Portfolio, likeCount, viewCount in
 		Slug:         p.Slug,
 		ThumbnailURL: p.ThumbnailURL,
 		PublishedAt:  p.PublishedAt,
+		CreatedAt:    p.CreatedAt,
 		LikeCount:    likeCount,
 		ViewCount:    viewCount,
 		IsLiked:      isLiked,

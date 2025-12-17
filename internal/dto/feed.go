@@ -14,6 +14,7 @@ type FeedItemDTO struct {
 	ThumbnailURL *string      `json:"thumbnail_url"`
 	PreviewText  *string      `json:"preview_text,omitempty"`
 	PublishedAt  *time.Time   `json:"published_at"`
+	CreatedAt    time.Time    `json:"created_at"`
 	User         *FeedUserDTO `json:"user"`
 	Tags         []TagDTO     `json:"tags"`
 	LikeCount    int64        `json:"like_count"`
