@@ -9,14 +9,25 @@ import (
 	"github.com/grafikarsa/backend/internal/dto"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
+	"github.com/grafikarsa/backend/internal/service"
 )
 
 type FeedbackHandler struct {
 	feedbackRepo *repository.FeedbackRepository
+	userRepo     *repository.UserRepository
+	notifService *service.NotificationService
 }
 
-func NewFeedbackHandler(feedbackRepo *repository.FeedbackRepository) *FeedbackHandler {
-	return &FeedbackHandler{feedbackRepo: feedbackRepo}
+func NewFeedbackHandler(
+	feedbackRepo *repository.FeedbackRepository,
+	userRepo *repository.UserRepository,
+	notifService *service.NotificationService,
+) *FeedbackHandler {
+	return &FeedbackHandler{
+		feedbackRepo: feedbackRepo,
+		userRepo:     userRepo,
+		notifService: notifService,
+	}
 }
 
 // CreateFeedback - POST /feedback (public, auth optional)
@@ -138,12 +149,19 @@ func (h *FeedbackHandler) AdminUpdateFeedback(c *fiber.Ctx) error {
 
 	adminID := middleware.GetUserID(c)
 
+	// Track changes for notification
+	oldStatus := feedback.Status
+	statusChanged := false
+
 	if req.Status != nil {
-		feedback.Status = domain.FeedbackStatus(*req.Status)
-		if *req.Status == dto.FeedbackStatusResolved {
-			now := time.Now()
-			feedback.ResolvedAt = &now
-			feedback.ResolvedBy = adminID
+		if feedback.Status != domain.FeedbackStatus(*req.Status) {
+			statusChanged = true
+			feedback.Status = domain.FeedbackStatus(*req.Status)
+			if *req.Status == dto.FeedbackStatusResolved {
+				now := time.Now()
+				feedback.ResolvedAt = &now
+				feedback.ResolvedBy = adminID
+			}
 		}
 	}
 
@@ -153,6 +171,31 @@ func (h *FeedbackHandler) AdminUpdateFeedback(c *fiber.Ctx) error {
 
 	if err := h.feedbackRepo.Update(feedback); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("UPDATE_FAILED", "Gagal mengupdate feedback"))
+	}
+
+	// Send notification if status changed and feedback belongs to a user
+	if statusChanged && feedback.UserID != nil {
+		// Fetch admin details to get role name
+		adminUser, err := h.userRepo.FindByID(*adminID)
+		if err == nil { // If fetch fails, we skip notification but don't fail the request
+			var roleName string
+			if adminUser.Role == domain.RoleAdmin {
+				roleName = "Admin"
+			} else {
+				// Check special roles
+				specialRoles, err := h.userRepo.GetUserSpecialRoles(*adminID)
+				if err == nil && len(specialRoles) > 0 {
+					roleName = specialRoles[0].Nama // Use the first special role
+				} else {
+					roleName = "Moderator" // Fallback
+				}
+			}
+
+			// Trigger notification asynchronously
+			go func() {
+				_ = h.notifService.NotifyFeedbackStatusUpdated(feedback, adminUser, roleName, oldStatus, feedback.Status)
+			}()
+		}
 	}
 
 	return c.JSON(dto.SuccessResponse(h.toResponse(feedback), "Feedback berhasil diupdate"))

@@ -399,6 +399,7 @@ const (
 	NotifPortfolioLiked    NotificationType = "portfolio_liked"
 	NotifPortfolioApproved NotificationType = "portfolio_approved"
 	NotifPortfolioRejected NotificationType = "portfolio_rejected"
+	NotifFeedbackUpdated   NotificationType = "feedback_updated"
 )
 
 // Notification

@@ -6,6 +6,7 @@ This guide covers how to deploy the **Grafikarsa** application (Polyrepo) on a P
 - LXC Container (Ubuntu 22.04 / Debian 11 recommended)
 - Docker & Docker Compose installed
 - Apache installed (`sudo apt install apache2`)
+- **Ensure Port 80/443 is free** (Uninstall Nginx if present: `sudo systemctl stop nginx && sudo systemctl disable nginx`)
 - Cloudflare Domains pointed to your LXC Public IP
 
 ## 1. Directory Structure
@@ -141,3 +142,42 @@ Since we configured Apache on port 80, changing Cloudflare settings is crucial:
     - Set Cloudflare SSL to **Full (Strict)**.
     - Generate an **Origin Certificate** in Cloudflare.
     - Install that cert in Apache (`SSLCertificateFile` directive) and change `<VirtualHost *:80>` to `*:443`.
+
+## 5. Maintenance & Updates
+
+### How to Update (Redeploy)
+When you push new code to GitHub, follow these steps on your server:
+
+1.  **Navigate to the folder** (e.g., `web` or `backend`):
+    ```bash
+    cd /opt/grafikarsa/web
+    ```
+2.  **Pull latest changes**:
+    ```bash
+    git pull origin main
+    ```
+3.  **Rebuild and Restart**:
+    ```bash
+    docker-compose -f docker-compose.prod.yml up -d --build
+    ```
+    *Note: The `--build` flag is crucial to re-compile the code into a new image.*
+
+### Viewing Logs
+To check if everything is running fine:
+```bash
+docker-compose -f docker-compose.prod.yml logs -f --tail=50
+```
+
+## Troubleshooting
+
+### "Systemctl restart apache2 failed"
+Check if Port 80 is supposedly used by Nginx:
+```bash
+sudo ss -tulpn | grep :80
+```
+If you see `nginx` using port 80, stop it:
+```bash
+sudo systemctl stop nginx
+sudo systemctl disable nginx
+sudo systemctl restart apache2
+```

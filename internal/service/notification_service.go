@@ -89,6 +89,46 @@ func (s *NotificationService) NotifyPortfolioRejected(portfolio *domain.Portfoli
 	return s.repo.Create(notification)
 }
 
+// NotifyFeedbackStatusUpdated creates notification when feedback status is updated
+func (s *NotificationService) NotifyFeedbackStatusUpdated(feedback *domain.Feedback, actor *domain.User, actorRole string, oldStatus, newStatus domain.FeedbackStatus) error {
+	if feedback.UserID == nil {
+		return nil // Don't notify generic/anonymous feedback
+	}
+
+	// Format status for display
+	statusMap := map[domain.FeedbackStatus]string{
+		domain.FeedbackStatusPending:  "Pending",
+		domain.FeedbackStatusRead:     "Dibaca",
+		domain.FeedbackStatusResolved: "Selesai",
+	}
+
+	title := "Status Feedback Diperbarui"
+	message := "@" + actor.Username + " mengubah status feedback kamu menjadi " + statusMap[newStatus]
+
+	data := domain.JSONB{
+		"feedback_id":    feedback.ID.String(),
+		"actor_id":       actor.ID.String(),
+		"actor_username": actor.Username,
+		"actor_nama":     actor.Nama,
+		"actor_role":     actorRole,
+		"old_status":     string(oldStatus),
+		"new_status":     string(newStatus),
+	}
+
+	if feedback.AdminNotes != nil && *feedback.AdminNotes != "" {
+		data["admin_note"] = *feedback.AdminNotes
+	}
+
+	notification := &domain.Notification{
+		UserID:  *feedback.UserID,
+		Type:    domain.NotifFeedbackUpdated,
+		Title:   title,
+		Message: &message,
+		Data:    data,
+	}
+	return s.repo.Create(notification)
+}
+
 func strPtr(s string) *string {
 	return &s
 }
