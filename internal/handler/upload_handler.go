@@ -34,14 +34,14 @@ type PendingUpload struct {
 
 var uploadLimits = map[string]int64{
 	"avatar":          2 * 1024 * 1024,  // 2MB
-	"banner":          5 * 1024 * 1024,  // 5MB
+	"banner":          10 * 1024 * 1024, // 10MB (increased for GIF support)
 	"thumbnail":       5 * 1024 * 1024,  // 5MB
 	"portfolio_image": 10 * 1024 * 1024, // 10MB
 }
 
 var allowedTypes = map[string][]string{
 	"avatar":          {"image/jpeg", "image/png", "image/webp"},
-	"banner":          {"image/jpeg", "image/png", "image/webp"},
+	"banner":          {"image/jpeg", "image/png", "image/webp", "image/gif"},
 	"thumbnail":       {"image/jpeg", "image/png", "image/webp"},
 	"portfolio_image": {"image/jpeg", "image/png", "image/webp", "image/gif"},
 }
