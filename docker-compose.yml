@@ -91,5 +91,5 @@ volumes:
 
 networks:
   grafikarsa-network:
+    external: true
     name: grafikarsa-network
-    driver: bridge
