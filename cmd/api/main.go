@@ -75,7 +75,7 @@ func main() {
 	searchHandler := handler.NewSearchHandler(userRepo, portfolioRepo)
 	feedbackHandler := handler.NewFeedbackHandler(feedbackRepo, userRepo, notificationService)
 	assessmentHandler := handler.NewAssessmentHandler(assessmentRepo, portfolioRepo)
-	notificationHandler := handler.NewNotificationHandler(notificationRepo, userRepo)
+	notificationHandler := handler.NewNotificationHandler(notificationRepo, userRepo, followRepo)
 	importHandler := handler.NewImportHandler(adminRepo, userRepo)
 	changelogHandler := handler.NewChangelogHandler(changelogRepo, notificationService, userRepo)
 

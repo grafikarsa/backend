@@ -30,8 +30,9 @@ type NotificationListMeta struct {
 
 // ActorInfo - info actor untuk enrichment notifikasi
 type ActorInfo struct {
-	ID        string  `json:"id"`
-	Username  string  `json:"username"`
-	Nama      string  `json:"nama"`
-	AvatarURL *string `json:"avatar_url"`
+	ID          string  `json:"id"`
+	Username    string  `json:"username"`
+	Nama        string  `json:"nama"`
+	AvatarURL   *string `json:"avatar_url"`
+	IsFollowing bool    `json:"is_following"`
 }

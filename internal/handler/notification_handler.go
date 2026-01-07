@@ -10,12 +10,13 @@ import (
 )
 
 type NotificationHandler struct {
-	repo     *repository.NotificationRepository
-	userRepo *repository.UserRepository
+	repo       *repository.NotificationRepository
+	userRepo   *repository.UserRepository
+	followRepo *repository.FollowRepository
 }
 
-func NewNotificationHandler(repo *repository.NotificationRepository, userRepo *repository.UserRepository) *NotificationHandler {
-	return &NotificationHandler{repo: repo, userRepo: userRepo}
+func NewNotificationHandler(repo *repository.NotificationRepository, userRepo *repository.UserRepository, followRepo *repository.FollowRepository) *NotificationHandler {
+	return &NotificationHandler{repo: repo, userRepo: userRepo, followRepo: followRepo}
 }
 
 // List - GET /notifications
@@ -63,11 +64,13 @@ func (h *NotificationHandler) List(c *fiber.Ctx) error {
 	actorData := make(map[uuid.UUID]*dto.ActorInfo)
 	for id := range actorIDs {
 		if user, err := h.userRepo.FindByID(id); err == nil {
+			isFollowing, _ := h.followRepo.IsFollowing(*userID, id)
 			actorData[id] = &dto.ActorInfo{
-				ID:        user.ID.String(),
-				Username:  user.Username,
-				Nama:      user.Nama,
-				AvatarURL: user.AvatarURL,
+				ID:          user.ID.String(),
+				Username:    user.Username,
+				Nama:        user.Nama,
+				AvatarURL:   user.AvatarURL,
+				IsFollowing: isFollowing,
 			}
 		}
 	}
@@ -124,6 +127,7 @@ func (h *NotificationHandler) List(c *fiber.Ctx) error {
 			enrichedData[actorKey+"_username"] = actor.Username
 			enrichedData[actorKey+"_nama"] = actor.Nama
 			enrichedData[actorKey+"_avatar"] = actor.AvatarURL
+			enrichedData[actorKey+"_is_following"] = actor.IsFollowing
 
 			// Regenerate message with current username
 			if n.Message != nil {
