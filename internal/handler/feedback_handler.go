@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -175,9 +176,14 @@ func (h *FeedbackHandler) AdminUpdateFeedback(c *fiber.Ctx) error {
 
 	// Send notification if status changed and feedback belongs to a user
 	if statusChanged && feedback.UserID != nil {
-		// Fetch admin details to get role name
-		adminUser, err := h.userRepo.FindByID(*adminID)
-		if err == nil { // If fetch fails, we skip notification but don't fail the request
+		go func() {
+			// Fetch admin details to get role name
+			adminUser, err := h.userRepo.FindByID(*adminID)
+			if err != nil {
+				log.Printf("[NotificationDebug] Failed to find admin user %s: %v", adminID, err)
+				return
+			}
+
 			var roleName string
 			if adminUser.Role == domain.RoleAdmin {
 				roleName = "Admin"
@@ -191,11 +197,17 @@ func (h *FeedbackHandler) AdminUpdateFeedback(c *fiber.Ctx) error {
 				}
 			}
 
-			// Trigger notification asynchronously
-			go func() {
-				_ = h.notifService.NotifyFeedbackStatusUpdated(feedback, adminUser, roleName, oldStatus, feedback.Status)
-			}()
-		}
+			log.Printf("[NotificationDebug] Triggering notification. FeedbackID: %s, Actor: %s (%s), OldStatus: %s, NewStatus: %s",
+				feedback.ID, adminUser.Username, roleName, oldStatus, feedback.Status)
+
+			if err := h.notifService.NotifyFeedbackStatusUpdated(feedback, adminUser, roleName, oldStatus, feedback.Status); err != nil {
+				log.Printf("[NotificationDebug] Failed to send notification: %v", err)
+			} else {
+				log.Printf("[NotificationDebug] Notification sent successfully")
+			}
+		}()
+	} else {
+		log.Printf("[NotificationDebug] Skipped notification. StatusChanged: %v, UserID: %v", statusChanged, feedback.UserID)
 	}
 
 	return c.JSON(dto.SuccessResponse(h.toResponse(feedback), "Feedback berhasil diupdate"))
