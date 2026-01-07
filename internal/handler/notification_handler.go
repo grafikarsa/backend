@@ -3,17 +3,19 @@ package handler
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/grafikarsa/backend/internal/domain"
 	"github.com/grafikarsa/backend/internal/dto"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
 )
 
 type NotificationHandler struct {
-	repo *repository.NotificationRepository
+	repo     *repository.NotificationRepository
+	userRepo *repository.UserRepository
 }
 
-func NewNotificationHandler(repo *repository.NotificationRepository) *NotificationHandler {
-	return &NotificationHandler{repo: repo}
+func NewNotificationHandler(repo *repository.NotificationRepository, userRepo *repository.UserRepository) *NotificationHandler {
+	return &NotificationHandler{repo: repo, userRepo: userRepo}
 }
 
 // List - GET /notifications
@@ -41,9 +43,38 @@ func (h *NotificationHandler) List(c *fiber.Ctx) error {
 
 	unreadCount, _ := h.repo.CountUnread(*userID)
 
+	// Collect unique actor IDs from notification data
+	actorIDs := make(map[uuid.UUID]bool)
+	for _, n := range notifications {
+		data := map[string]interface{}(n.Data)
+		// Check various actor ID fields
+		for _, key := range []string{"follower_id", "liker_id", "actor_id"} {
+			if idStr, exists := data[key]; exists {
+				if strVal, ok := idStr.(string); ok {
+					if id, err := uuid.Parse(strVal); err == nil {
+						actorIDs[id] = true
+					}
+				}
+			}
+		}
+	}
+
+	// Batch fetch current user data for actors
+	actorData := make(map[uuid.UUID]*dto.ActorInfo)
+	for id := range actorIDs {
+		if user, err := h.userRepo.FindByID(id); err == nil {
+			actorData[id] = &dto.ActorInfo{
+				ID:        user.ID.String(),
+				Username:  user.Username,
+				Nama:      user.Nama,
+				AvatarURL: user.AvatarURL,
+			}
+		}
+	}
+
 	var responses []dto.NotificationResponse
 	for _, n := range notifications {
-		responses = append(responses, dto.NotificationResponse{
+		resp := dto.NotificationResponse{
 			ID:        n.ID.String(),
 			Type:      string(n.Type),
 			Title:     n.Title,
@@ -52,7 +83,75 @@ func (h *NotificationHandler) List(c *fiber.Ctx) error {
 			IsRead:    n.IsRead,
 			ReadAt:    n.ReadAt,
 			CreatedAt: n.CreatedAt,
-		})
+		}
+
+		// Enrich data with current user info
+		data := map[string]interface{}(n.Data)
+		enrichedData := make(map[string]interface{})
+		for k, v := range data {
+			enrichedData[k] = v
+		}
+
+		// Update actor info based on notification type
+		var actorID uuid.UUID
+		var actorKey string
+		switch n.Type {
+		case domain.NotifNewFollower:
+			if idStr, exists := data["follower_id"]; exists {
+				if strVal, ok := idStr.(string); ok {
+					actorID, _ = uuid.Parse(strVal)
+					actorKey = "follower"
+				}
+			}
+		case domain.NotifPortfolioLiked:
+			if idStr, exists := data["liker_id"]; exists {
+				if strVal, ok := idStr.(string); ok {
+					actorID, _ = uuid.Parse(strVal)
+					actorKey = "liker"
+				}
+			}
+		case domain.NotifFeedbackUpdated:
+			if idStr, exists := data["actor_id"]; exists {
+				if strVal, ok := idStr.(string); ok {
+					actorID, _ = uuid.Parse(strVal)
+					actorKey = "actor"
+				}
+			}
+		}
+
+		// Enrich with current data
+		if actor, exists := actorData[actorID]; exists && actorKey != "" {
+			enrichedData[actorKey+"_username"] = actor.Username
+			enrichedData[actorKey+"_nama"] = actor.Nama
+			enrichedData[actorKey+"_avatar"] = actor.AvatarURL
+
+			// Regenerate message with current username
+			if n.Message != nil {
+				switch n.Type {
+				case domain.NotifNewFollower:
+					newMsg := "@" + actor.Username + " mulai mengikuti kamu"
+					resp.Message = &newMsg
+				case domain.NotifPortfolioLiked:
+					if judul, ok := data["portfolio_judul"].(string); ok {
+						newMsg := "@" + actor.Username + " menyukai portfolio \"" + judul + "\""
+						resp.Message = &newMsg
+					}
+				case domain.NotifFeedbackUpdated:
+					if newStatus, ok := data["new_status"].(string); ok {
+						statusMap := map[string]string{
+							"pending":  "Pending",
+							"read":     "Dibaca",
+							"resolved": "Selesai",
+						}
+						newMsg := "@" + actor.Username + " mengubah status feedback kamu menjadi " + statusMap[newStatus]
+						resp.Message = &newMsg
+					}
+				}
+			}
+		}
+
+		resp.Data = enrichedData
+		responses = append(responses, resp)
 	}
 
 	totalPages := (int(total) + limit - 1) / limit

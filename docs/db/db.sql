@@ -915,7 +915,7 @@ COMMENT ON FUNCTION cleanup_expired_tokens() IS 'Hapus refresh tokens dan blackl
 -- ============================================================================
 
 -- Notification type enum
-CREATE TYPE notification_type AS ENUM ('new_follower', 'portfolio_liked', 'portfolio_approved', 'portfolio_rejected');
+CREATE TYPE notification_type AS ENUM ('new_follower', 'portfolio_liked', 'portfolio_approved', 'portfolio_rejected', 'feedback_updated');
 
 -- Notifications table
 CREATE TABLE notifications (

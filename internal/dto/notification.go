@@ -27,3 +27,11 @@ type NotificationListMeta struct {
 	TotalPages  int   `json:"total_pages"`
 	UnreadCount int64 `json:"unread_count"`
 }
+
+// ActorInfo - info actor untuk enrichment notifikasi
+type ActorInfo struct {
+	ID        string  `json:"id"`
+	Username  string  `json:"username"`
+	Nama      string  `json:"nama"`
+	AvatarURL *string `json:"avatar_url"`
+}
