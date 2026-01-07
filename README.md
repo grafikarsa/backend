@@ -6,7 +6,6 @@ REST API Backend untuk Platform Katalog Portofolio & Social Network Warga SMKN 4
 
 - **Language:** Go 1.21+
 - **Framework:** GoFiber v2
-- **ORM:** GORM
 - **Database:** PostgreSQL 15+
 - **Object Storage:** MinIO
 - **Authentication:** JWT (Access + Refresh Token)

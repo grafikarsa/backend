@@ -4,29 +4,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - .env
     environment:
-      - APP_ENV=development
-      - APP_PORT=8080
-      - APP_URL=http://localhost:8080
+      - APP_ENV=${APP_ENV:-development}
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=grafikarsa
-      - DB_PASSWORD=grafikarsa_secret
-      - DB_NAME=grafikarsa
-      - DB_SSLMODE=disable
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_PRESIGN_HOST=localhost:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
-      - MINIO_BUCKET=grafikarsa
-      - MINIO_USE_SSL=false
-      - STORAGE_PUBLIC_URL=http://localhost:9000/grafikarsa
-      - JWT_ACCESS_SECRET=3af1c4fe98ae7d4f2a12a6bc8e41dd1cd3d8c7bbdc6a754abfc99b5e44fa92e1
-      - JWT_REFRESH_SECRET=3af1c4fe98ae7d4f2a12a6bc8e41dd1cd3d8c7bbdc6a754abfc99b5e44fa92e1
-      - JWT_ACCESS_EXPIRY=15m
-      - JWT_REFRESH_EXPIRY=168h
-      - CORS_ORIGINS=http://localhost:3000
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,16 +24,16 @@ services:
   postgres:
     image: postgres:15-alpine
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      - POSTGRES_USER=grafikarsa
-      - POSTGRES_PASSWORD=grafikarsa_secret
-      - POSTGRES_DB=grafikarsa
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docs/db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U grafikarsa -d grafikarsa"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -59,16 +44,16 @@ services:
   minio:
     image: minio/minio:latest
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin123
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -83,17 +68,11 @@ services:
       minio:
         condition: service_healthy
     entrypoint: >
-      /bin/sh -c "
-      sleep 2;
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
-      /usr/bin/mc mb myminio/grafikarsa --ignore-existing;
-      /usr/bin/mc anonymous set public myminio/grafikarsa;
-      cat > /tmp/cors.json << 'EOF'
-      {
+      /bin/sh -c " sleep 2; /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}; /usr/bin/mc mb myminio/${MINIO_BUCKET} --ignore-existing; /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET}; cat > /tmp/cors.json << 'EOF' {
         \"cors\": {
           \"CORSRules\": [
             {
-              \"AllowedOrigins\": [\"http://localhost:3000\", \"http://127.0.0.1:3000\"],
+              \"AllowedOrigins\": [\"*\"],
               \"AllowedMethods\": [\"GET\", \"PUT\", \"POST\", \"DELETE\", \"HEAD\"],
               \"AllowedHeaders\": [\"*\"],
               \"ExposeHeaders\": [\"ETag\", \"Content-Length\", \"Content-Type\"],
@@ -101,11 +80,7 @@ services:
             }
           ]
         }
-      }
-      EOF
-      /usr/bin/mc cors set myminio/grafikarsa /tmp/cors.json;
-      exit 0;
-      "
+      } EOF /usr/bin/mc cors set myminio/${MINIO_BUCKET} /tmp/cors.json; exit 0; "
     networks:
       - grafikarsa-network
 
@@ -113,6 +88,8 @@ volumes:
   postgres_data:
   minio_data:
 
+
 networks:
   grafikarsa-network:
+    name: grafikarsa-network
     driver: bridge
