@@ -88,14 +88,40 @@ BEGIN
 END \$\$;
 "
 
-echo "Connecting to database $DB_NAME at $DB_HOST:$DB_PORT as $DB_USER..."
+echo "Connecting to database $DB_NAME..."
 
-# Execute SQL using psql
-# -v ON_ERROR_STOP=1 stops execution if an error occurs
-# -e echo commands
-echo "$SQL_COMMANDS" | psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
+# Check if psql is installed
+if command -v psql &> /dev/null; then
+    echo "Using system psql..."
+    # If DB_HOST is 'postgres' (docker service name), map to localhost if running on host
+    HOST=$DB_HOST
+    # Simple check if DB_HOST matches common docker service names
+    if [ "$HOST" = "postgres" ] || [ "$HOST" = "db" ]; then
+        HOST="localhost"
+    fi
+    
+    echo "$SQL_COMMANDS" | PGPASSWORD=$DB_PASSWORD psql -h "$HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
+    EXIT_CODE=$?
+elif command -v docker &> /dev/null; then
+    CONTAINER_NAME="backend-postgres-1"
+    echo "psql not found on host. Attempting to use Docker container: $CONTAINER_NAME"
+    
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        echo "Executing SQL inside container..."
+        echo "$SQL_COMMANDS" | docker exec -i -e PGPASSWORD=$DB_PASSWORD $CONTAINER_NAME psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1
+        EXIT_CODE=$?
+    else
+        echo -e "${RED}Error: psql not found and Docker container '$CONTAINER_NAME' is not running.${NC}"
+        echo "Available containers:"
+        docker ps --format '{{.Names}}'
+        exit 1
+    fi
+else
+    echo -e "${RED}Error: Neither psql nor docker command found.${NC}"
+    exit 1
+fi
 
-if [ $? -eq 0 ]; then
+if [ $EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}✅ Migration completed successfully!${NC}"
 else
     echo -e "${RED}❌ Migration failed.${NC}"
