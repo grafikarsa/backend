@@ -915,7 +915,8 @@ COMMENT ON FUNCTION cleanup_expired_tokens() IS 'Hapus refresh tokens dan blackl
 -- ============================================================================
 
 -- Notification type enum
-CREATE TYPE notification_type AS ENUM ('new_follower', 'portfolio_liked', 'portfolio_approved', 'portfolio_rejected', 'feedback_updated');
+-- Notification type enum
+CREATE TYPE notification_type AS ENUM ('new_follower', 'portfolio_liked', 'portfolio_approved', 'portfolio_rejected', 'feedback_updated', 'new_comment', 'reply_comment');
 
 -- Notifications table
 CREATE TABLE notifications (
@@ -993,6 +994,37 @@ INSERT INTO special_roles (nama, description, color, capabilities) VALUES
 ('Penilai Portfolio', 'Menilai portfolio siswa', '#eab308', ARRAY['assessments', 'assessment_metrics']),
 ('Super Moderator', 'Akses hampir semua fitur admin', '#8b5cf6', ARRAY['dashboard', 'portfolios', 'moderation', 'assessments', 'assessment_metrics', 'tags', 'series', 'feedback'])
 ON CONFLICT (nama) DO NOTHING;
+
+-- ============================================================================
+-- COMMENTS
+-- ============================================================================
+
+CREATE TABLE comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    portfolio_id UUID NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_edited BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_comments_portfolio_id ON comments(portfolio_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+CREATE INDEX idx_comments_parent_id ON comments(parent_id);
+CREATE INDEX idx_comments_created_at ON comments(created_at);
+
+COMMENT ON TABLE comments IS 'Komentar pada portfolio, mendukung threading (replies)';
+COMMENT ON COLUMN comments.parent_id IS 'ID komentar induk jika ini adalah balasan (NULL untuk top-level comment)';
+
+-- Trigger updated_at for comments
+CREATE TRIGGER trg_comments_updated_at 
+    BEFORE UPDATE ON comments 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at();
+
 
 -- ============================================================================
 -- SMART FEED ALGORITHM

@@ -400,7 +400,25 @@ const (
 	NotifPortfolioApproved NotificationType = "portfolio_approved"
 	NotifPortfolioRejected NotificationType = "portfolio_rejected"
 	NotifFeedbackUpdated   NotificationType = "feedback_updated"
+	NotifNewComment        NotificationType = "new_comment"
+	NotifReplyComment      NotificationType = "reply_comment"
 )
+
+// Comment
+type Comment struct {
+	BaseModel
+	PortfolioID uuid.UUID  `gorm:"type:uuid;not null" json:"portfolio_id"`
+	UserID      uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
+	ParentID    *uuid.UUID `gorm:"type:uuid" json:"parent_id,omitempty"`
+	Content     string     `gorm:"type:text;not null" json:"content"`
+	IsEdited    bool       `gorm:"default:false" json:"is_edited"`
+	User        *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Portfolio   *Portfolio `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
+	Parent      *Comment   `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
+	Children    []Comment  `gorm:"foreignKey:ParentID" json:"children,omitempty"`
+}
+
+func (Comment) TableName() string { return "comments" }
 
 // Notification
 type Notification struct {

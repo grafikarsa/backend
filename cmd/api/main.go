@@ -14,6 +14,7 @@ import (
 	"github.com/grafikarsa/backend/internal/auth"
 	"github.com/grafikarsa/backend/internal/config"
 	"github.com/grafikarsa/backend/internal/database"
+	"github.com/grafikarsa/backend/internal/domain"
 	"github.com/grafikarsa/backend/internal/handler"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
@@ -40,6 +41,11 @@ func main() {
 		log.Fatalf("Failed to connect to MinIO: %v", err)
 	}
 
+	// Auto-migrate tables (add new tables here as needed)
+	if err := db.AutoMigrate(&domain.Comment{}); err != nil {
+		log.Printf("Failed to auto-migrate Comment table: %v", err)
+	}
+
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(cfg)
 
@@ -56,10 +62,13 @@ func main() {
 	interestRepo := repository.NewInterestRepository(db)
 	feedRepo := repository.NewFeedRepository(db)
 	changelogRepo := repository.NewChangelogRepository(db)
+	commentRepo := repository.NewCommentRepository(db)
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
 	feedService := service.NewFeedService(portfolioRepo, followRepo, viewRepo, interestRepo)
+	commentService := service.NewCommentService(commentRepo, userRepo, portfolioRepo, notificationRepo)
+	commentService.SetNotificationService(notificationService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userRepo, authRepo, jwtService)
@@ -78,6 +87,7 @@ func main() {
 	notificationHandler := handler.NewNotificationHandler(notificationRepo, userRepo, followRepo)
 	importHandler := handler.NewImportHandler(adminRepo, userRepo)
 	changelogHandler := handler.NewChangelogHandler(changelogRepo, notificationService, userRepo)
+	commentHandler := handler.NewCommentHandler(commentService)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -156,7 +166,16 @@ func main() {
 	portfolioRoutes.Post("/:id/archive", authMiddleware.Required(), portfolioHandler.Archive)
 	portfolioRoutes.Post("/:id/unarchive", authMiddleware.Required(), portfolioHandler.Unarchive)
 	portfolioRoutes.Post("/:id/like", authMiddleware.Required(), portfolioHandler.Like)
+	portfolioRoutes.Post("/:id/like", authMiddleware.Required(), portfolioHandler.Like)
 	portfolioRoutes.Delete("/:id/like", authMiddleware.Required(), portfolioHandler.Unlike)
+
+	// Comment Routes (nested under portfolios)
+	portfolioRoutes.Post("/:portfolio_id/comments", authMiddleware.Required(), commentHandler.Create)
+	portfolioRoutes.Get("/:id/comments", authMiddleware.Optional(), commentHandler.GetByPortfolioID)
+
+	// Global Comment Routes
+	commentRoutes := api.Group("/comments", authMiddleware.Required())
+	commentRoutes.Delete("/:id", commentHandler.Delete)
 
 	// Content block routes
 	portfolioRoutes.Post("/:portfolio_id/blocks", authMiddleware.Required(), contentBlockHandler.Create)

@@ -129,6 +129,52 @@ func (s *NotificationService) NotifyFeedbackStatusUpdated(feedback *domain.Feedb
 	return s.repo.Create(notification)
 }
 
+// NotifyNewComment creates notification when someone comments on a portfolio
+func (s *NotificationService) NotifyNewComment(portfolio *domain.Portfolio, commenter *domain.User, comment *domain.Comment) error {
+	notification := &domain.Notification{
+		UserID:  portfolio.UserID,
+		Type:    domain.NotifNewComment,
+		Title:   "Komentar Baru di Portfolio",
+		Message: strPtr("@" + commenter.Username + " berkomentar di \"" + portfolio.Judul + "\""),
+		Data: domain.JSONB{
+			"actor_id":       commenter.ID.String(),
+			"actor_username": commenter.Username,
+			"actor_nama":     commenter.Nama,
+			"actor_avatar":   commenter.AvatarURL,
+			"portfolio_id":   portfolio.ID.String(),
+			"portfolio_slug": portfolio.Slug,
+			// Assuming owner username is passed or loaded. If portfolio.User is nil, this might panic.
+			// Check caller to ensure Portfolio is loaded with User.
+			"portfolio_owner_username": portfolio.User.Username,
+			"portfolio_judul":          portfolio.Judul,
+			"comment_id":               comment.ID.String(),
+		},
+	}
+	return s.repo.Create(notification)
+}
+
+// NotifyReplyComment creates notification when someone replies to a comment
+func (s *NotificationService) NotifyReplyComment(parentComment *domain.Comment, portfolio *domain.Portfolio, replier *domain.User, reply *domain.Comment) error {
+	notification := &domain.Notification{
+		UserID:  parentComment.UserID,
+		Type:    domain.NotifReplyComment,
+		Title:   "Balasan Komentar Baru",
+		Message: strPtr("@" + replier.Username + " membalas komentar Anda"),
+		Data: domain.JSONB{
+			"actor_id":                 replier.ID.String(),
+			"actor_username":           replier.Username,
+			"actor_nama":               replier.Nama,
+			"actor_avatar":             replier.AvatarURL,
+			"portfolio_id":             portfolio.ID.String(),
+			"portfolio_slug":           portfolio.Slug,
+			"portfolio_owner_username": portfolio.User.Username,
+			"comment_id":               reply.ID.String(),
+			"parent_comment_id":        parentComment.ID.String(),
+		},
+	}
+	return s.repo.Create(notification)
+}
+
 func strPtr(s string) *string {
 	return &s
 }
