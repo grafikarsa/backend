@@ -14,7 +14,6 @@ import (
 	"github.com/grafikarsa/backend/internal/auth"
 	"github.com/grafikarsa/backend/internal/config"
 	"github.com/grafikarsa/backend/internal/database"
-	"github.com/grafikarsa/backend/internal/domain"
 	"github.com/grafikarsa/backend/internal/handler"
 	"github.com/grafikarsa/backend/internal/middleware"
 	"github.com/grafikarsa/backend/internal/repository"
@@ -39,11 +38,6 @@ func main() {
 	minioClient, err := storage.NewMinIOClient(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to MinIO: %v", err)
-	}
-
-	// Auto-migrate tables (add new tables here as needed)
-	if err := db.AutoMigrate(&domain.Comment{}); err != nil {
-		log.Printf("Failed to auto-migrate Comment table: %v", err)
 	}
 
 	// Initialize JWT service
