@@ -92,16 +92,23 @@ func (h *CommentHandler) Delete(c *fiber.Ctx) error {
 // In a real scenario, these should be imported from middleware or util package
 // But handler package usually has them or uses c.Locals
 func GetUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	// Implementation depends on middleware. Assuming JWT middleware sets "user_id"
-	idStr, ok := c.Locals("user_id").(string)
+	// Middleware sets "userID" as uuid.UUID
+	userID := c.Locals("userID")
+	if userID == nil {
+		return uuid.Nil, fiber.ErrUnauthorized
+	}
+
+	// Type assertion
+	id, ok := userID.(uuid.UUID)
 	if !ok {
 		return uuid.Nil, fiber.ErrUnauthorized
 	}
-	return uuid.Parse(idStr)
+	return id, nil
 }
 
 func GetUserRole(c *fiber.Ctx) string {
-	role, ok := c.Locals("role").(string)
+	// Middleware sets "userRole"
+	role, ok := c.Locals("userRole").(string)
 	if !ok {
 		return ""
 	}
