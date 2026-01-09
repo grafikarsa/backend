@@ -13,10 +13,10 @@ type CreateCommentRequest struct {
 }
 
 type CommentResponse struct {
-	ID        uuid.UUID         `json:"id"`
-	Content   string            `json:"content"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedAt time.Time         `json:"updated_at"`
-	User      UserBriefDTO      `json:"user"`
-	Children  []CommentResponse `json:"children,omitempty"`
+	ID        uuid.UUID          `json:"id"`
+	Content   string             `json:"content"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	User      UserBriefDTO       `json:"user"`
+	Children  []*CommentResponse `json:"children,omitempty"`
 }

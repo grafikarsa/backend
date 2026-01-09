@@ -108,11 +108,11 @@ func (s *CommentService) GetByPortfolioID(portfolioID uuid.UUID) ([]dto.CommentR
 }
 
 func (s *CommentService) buildCommentTree(comments []domain.Comment) []dto.CommentResponse {
-	// Map ID -> CommentResponse
+	// Map ID -> *CommentResponse
 	commentMap := make(map[uuid.UUID]*dto.CommentResponse)
-	var rootComments []*dto.CommentResponse
+	var rootComments []dto.CommentResponse
 
-	// First pass: Create Response objects
+	// First pass: Create Response objects and populate map
 	for _, c := range comments {
 		resp := &dto.CommentResponse{
 			ID:        c.ID,
@@ -126,29 +126,31 @@ func (s *CommentService) buildCommentTree(comments []domain.Comment) []dto.Comme
 				AvatarURL: c.User.AvatarURL,
 				Role:      string(c.User.Role),
 			},
-			Children: []dto.CommentResponse{},
+			Children: []*dto.CommentResponse{},
 		}
 		commentMap[c.ID] = resp
 	}
 
-	// Second pass: Link children
+	// Second pass: Link children using pointers
 	for _, c := range comments {
 		if c.ParentID != nil {
 			if parent, exists := commentMap[*c.ParentID]; exists {
-				parent.Children = append(parent.Children, *commentMap[c.ID])
+				// Append the POINTER to the parent's children
+				parent.Children = append(parent.Children, commentMap[c.ID])
 			}
-		} else {
-			rootComments = append(rootComments, commentMap[c.ID])
 		}
 	}
 
-	// Convert pointers to values for final slice
-	result := make([]dto.CommentResponse, len(rootComments))
-	for i, root := range rootComments {
-		result[i] = *root
+	// Final pass: Collect roots (values)
+	for _, c := range comments {
+		if c.ParentID == nil {
+			if root, exists := commentMap[c.ID]; exists {
+				rootComments = append(rootComments, *root)
+			}
+		}
 	}
 
-	return result
+	return rootComments
 }
 
 func (s *CommentService) Delete(userID uuid.UUID, commentID uuid.UUID, isAdmin bool) error {
