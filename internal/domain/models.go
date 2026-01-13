@@ -43,6 +43,7 @@ const (
 	BlockPDF     ContentBlockType = "pdf"
 	BlockDoc     ContentBlockType = "doc"
 	BlockWebsite ContentBlockType = "website"
+	BlockTwitter ContentBlockType = "twitter"
 )
 
 type SocialPlatform string
