@@ -43,7 +43,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";  -- untuk fuzzy search
 
 CREATE TYPE user_role AS ENUM ('student', 'alumni', 'admin');
 CREATE TYPE portfolio_status AS ENUM ('draft', 'pending_review', 'rejected', 'published', 'archived');
-CREATE TYPE content_block_type AS ENUM ('text', 'image', 'table', 'youtube', 'button', 'embed');
+CREATE TYPE content_block_type AS ENUM ('text', 'image', 'table', 'youtube', 'button', 'embed', 'figma', 'canva', 'ppt', 'pdf', 'doc', 'website');
 CREATE TYPE social_platform AS ENUM (
     'facebook', 'instagram', 'github', 'linkedin', 'twitter',
     'personal_website', 'tiktok', 'youtube', 'behance', 'dribbble',
