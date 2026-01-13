@@ -36,6 +36,13 @@ const (
 	BlockYoutube ContentBlockType = "youtube"
 	BlockButton  ContentBlockType = "button"
 	BlockEmbed   ContentBlockType = "embed"
+	// New block types for rich embeds
+	BlockFigma   ContentBlockType = "figma"
+	BlockCanva   ContentBlockType = "canva"
+	BlockPPT     ContentBlockType = "ppt"
+	BlockPDF     ContentBlockType = "pdf"
+	BlockDoc     ContentBlockType = "doc"
+	BlockWebsite ContentBlockType = "website"
 )
 
 type SocialPlatform string

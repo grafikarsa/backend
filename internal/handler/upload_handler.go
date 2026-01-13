@@ -37,6 +37,7 @@ var uploadLimits = map[string]int64{
 	"banner":          10 * 1024 * 1024, // 10MB (increased for GIF support)
 	"thumbnail":       5 * 1024 * 1024,  // 5MB
 	"portfolio_image": 10 * 1024 * 1024, // 10MB
+	"document":        20 * 1024 * 1024, // 20MB for PDF, DOC, PPT files
 }
 
 var allowedTypes = map[string][]string{
@@ -44,6 +45,13 @@ var allowedTypes = map[string][]string{
 	"banner":          {"image/jpeg", "image/png", "image/webp", "image/gif"},
 	"thumbnail":       {"image/jpeg", "image/png", "image/webp"},
 	"portfolio_image": {"image/jpeg", "image/png", "image/webp", "image/gif"},
+	"document": {
+		"application/pdf",
+		"application/msword",
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"application/vnd.ms-powerpoint",
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	},
 }
 
 func NewUploadHandler(minioClient *storage.MinIOClient, userRepo *repository.UserRepository, portfolioRepo *repository.PortfolioRepository) *UploadHandler {
@@ -94,8 +102,8 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 		))
 	}
 
-	// Validate portfolio ownership for thumbnail/portfolio_image
-	if req.UploadType == "thumbnail" || req.UploadType == "portfolio_image" {
+	// Validate portfolio ownership for thumbnail/portfolio_image/document
+	if req.UploadType == "thumbnail" || req.UploadType == "portfolio_image" || req.UploadType == "document" {
 		if req.PortfolioID == nil {
 			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "portfolio_id wajib diisi"))
 		}
@@ -122,6 +130,8 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 		objectKey = fmt.Sprintf("thumbnails/%s/%s%s", req.PortfolioID.String(), fileID, ext)
 	case "portfolio_image":
 		objectKey = fmt.Sprintf("portfolio-images/%s/%s%s", req.PortfolioID.String(), fileID, ext)
+	case "document":
+		objectKey = fmt.Sprintf("documents/%s/%s%s", req.PortfolioID.String(), fileID, ext)
 	}
 
 	// Generate presigned URL
