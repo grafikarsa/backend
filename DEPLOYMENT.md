@@ -524,6 +524,19 @@ docker compose -f docker-compose.prod.yml logs
 - Cek `DOCKERHUB_USERNAME` dan `DOCKERHUB_TOKEN` di GitHub Secrets
 - Pastikan image sudah di-push ke Docker Hub
 
+### "lookup registry-1.docker.io: no such host" (Windows/WSL2)
+Error ini terjadi ketika Docker container tidak bisa resolve DNS. Solusi:
+1. Buka Docker Desktop Dashboard
+2. Masuk ke **Settings** -> **Docker Engine**
+3. Tambahkan konfigurasi DNS 8.8.8.8:
+   ```json
+   "dns": [
+     "8.8.8.8"
+   ]
+   ```
+4. Klik **Apply & Restart**
+
+
 ---
 
 ## 📝 Checklist Deployment
