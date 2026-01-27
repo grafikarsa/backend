@@ -378,7 +378,7 @@ func createEnumTypes(db *sql.DB) error {
 		EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
 		`DO $$ BEGIN
-			CREATE TYPE content_block_type AS ENUM ('text', 'image', 'table', 'youtube', 'button', 'embed', 'figma', 'canva', 'ppt', 'pdf', 'doc', 'website', 'twitter');
+			CREATE TYPE content_block_type AS ENUM ('text', 'image', 'table', 'youtube', 'button', 'embed', 'figma', 'canva', 'ppt', 'pdf', 'doc');
 		EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
 		`DO $$ BEGIN
