@@ -366,6 +366,27 @@ curl http://localhost:3000
 
 ---
 
+## 💾 BAGIAN 5.5: Setup Database Schema
+
+Karena ini deployment pertama, database masih kosong. Kita perlu import schema SQL.
+
+### 5.5.1 Copy File SQL ke Server
+Dari komputer lokal Anda (bukan di dalam server):
+```bash
+scp -i github_deploy backend/docs/db/db.sql deploy@IP_SERVER:/opt/grafikarsa/backend/
+```
+
+### 5.5.2 Import SQL ke Database
+Di server (SSH sebagai user `deploy`):
+```bash
+cd /opt/grafikarsa/backend
+
+# Import schema ke database grafikarsa
+docker exec -i grafikarsa-db psql -U grafikarsa -d grafikarsa < db.sql
+```
+
+---
+
 ## 🌐 BAGIAN 6: Setup Apache Reverse Proxy
 
 ### 6.1 Install Apache
