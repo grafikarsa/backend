@@ -1,0 +1,101 @@
+# Production docker-compose for Grafikarsa Backend
+# Uses pre-built image from Docker Hub for API (pushed by CI/CD)
+# PostgreSQL and MinIO run from official images
+
+services:
+  api:
+    image: ${DOCKERHUB_USERNAME:-rafapradana}/grafikarsa-backend:${IMAGE_TAG:-latest}
+    container_name: grafikarsa-backend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - DB_HOST=db
+      - DB_PORT=5432
+      - MINIO_ENDPOINT=minio:9000
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - grafikarsa-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:15-alpine
+    container_name: grafikarsa-db
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - grafikarsa-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: grafikarsa-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - grafikarsa-network
+
+  # One-time bucket setup container
+  createbuckets:
+    image: minio/mc
+    container_name: grafikarsa-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      sleep 2;
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET} --ignore-existing;
+      /usr/bin/mc anonymous set public myminio/${MINIO_BUCKET};
+      echo 'Bucket setup completed';
+      exit 0;
+      "
+    networks:
+      - grafikarsa-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  grafikarsa-network:
+    external: true
