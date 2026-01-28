@@ -26,6 +26,7 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 	client, err := minio.New(minioCfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(minioCfg.AccessKey, minioCfg.SecretKey, ""),
 		Secure: minioCfg.UseSSL,
+		Region: "us-east-1",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
@@ -43,6 +44,7 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 	presignClient, err := minio.New(presignEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(minioCfg.AccessKey, minioCfg.SecretKey, ""),
 		Secure: minioCfg.PresignUseSSL,
+		Region: "us-east-1",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MinIO presign client: %w", err)
@@ -60,6 +62,28 @@ func NewMinIOClient(cfg *config.Config) (*MinIOClient, error) {
 			return nil, fmt.Errorf("failed to create bucket: %w", err)
 		}
 		log.Printf("Bucket %s created successfully", minioCfg.Bucket)
+	}
+
+	// Set bucket policy to public read
+	policy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": {
+					"AWS": ["*"]
+				},
+				"Action": ["s3:GetObject"],
+				"Resource": ["arn:aws:s3:::%s/*"]
+			}
+		]
+	}`, minioCfg.Bucket)
+
+	if err := client.SetBucketPolicy(ctx, minioCfg.Bucket, policy); err != nil {
+		log.Printf("Failed to set bucket policy: %v", err)
+		// Don't fail startup for this, but log it
+	} else {
+		log.Printf("Bucket policy set to public read for %s", minioCfg.Bucket)
 	}
 
 	return &MinIOClient{
