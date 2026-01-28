@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -71,10 +72,15 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse("UNAUTHORIZED", "User tidak terautentikasi"))
 	}
 
+	// DEBUG LOGGING
+	log.Printf("Presign request received from UserID: %v", userID)
+
 	var req dto.PresignRequest
 	if err := c.BodyParser(&req); err != nil {
+		log.Printf("BodyParser error: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Request body tidak valid"))
 	}
+	log.Printf("Presign request for: %s, %s, %d bytes", req.UploadType, req.Filename, req.FileSize)
 
 	// Validate upload type
 	maxSize, ok := uploadLimits[req.UploadType]
@@ -137,10 +143,13 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 	}
 
 	// Generate presigned URL
+	log.Printf("Generating presigned URL for key: %s", objectKey)
 	presignedURL, err := h.minioClient.GetPresignedPutURL(objectKey, req.ContentType, 15*time.Minute)
 	if err != nil {
+		log.Printf("GetPresignedPutURL error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal generate presigned URL"))
 	}
+	log.Printf("Presigned URL generated successfully")
 
 	// Store pending upload
 	uploadID := uuid.New().String()
