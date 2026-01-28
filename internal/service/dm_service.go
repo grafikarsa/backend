@@ -88,10 +88,13 @@ func (s *DMService) StartConversation(senderID, recipientID uuid.UUID, initialMe
 	// Check if conversation already exists
 	existingConv, err := s.dmRepo.FindConversationByParticipants(senderID, recipientID)
 	if err == nil {
-		// Conversation exists, just send message
-		msg, err := s.SendMessage(existingConv.ID, senderID, domain.MessageTypeText, map[string]interface{}{"text": initialMessage}, nil)
-		if err != nil {
-			return nil, nil, err
+		// Conversation exists
+		var msg *domain.Message
+		if initialMessage != "" {
+			msg, err = s.SendMessage(existingConv.ID, senderID, domain.MessageTypeText, map[string]interface{}{"text": initialMessage}, nil)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		return existingConv, msg, nil
 	}
@@ -122,10 +125,13 @@ func (s *DMService) StartConversation(senderID, recipientID uuid.UUID, initialMe
 		return nil, nil, err
 	}
 
-	// Send initial message
-	msg, err := s.SendMessage(conv.ID, senderID, domain.MessageTypeText, map[string]interface{}{"text": initialMessage}, nil)
-	if err != nil {
-		return nil, nil, err
+	// Send initial message if provided
+	var msg *domain.Message
+	if initialMessage != "" {
+		msg, err = s.SendMessage(conv.ID, senderID, domain.MessageTypeText, map[string]interface{}{"text": initialMessage}, nil)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Reload conversation with participants
@@ -242,17 +248,18 @@ func (s *DMService) updateChatStreakAsync(convID, senderID uuid.UUID) {
 		lastChat := streak.LastChatDate.Truncate(24 * time.Hour)
 		diff := today.Sub(lastChat).Hours() / 24
 
-		if diff == 0 {
+		switch {
+		case diff == 0:
 			// Same day, no change
 			return
-		} else if diff == 1 {
+		case diff == 1:
 			// Consecutive day
 			streak.CurrentStreak++
 			if streak.CurrentStreak > streak.LongestStreak {
 				streak.LongestStreak = streak.CurrentStreak
 			}
 			streak.LastChatDate = &today
-		} else {
+		default:
 			// Streak broken
 			streak.CurrentStreak = 1
 			streak.LastChatDate = &today

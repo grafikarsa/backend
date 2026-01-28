@@ -115,16 +115,6 @@ func (h *DMHandler) StartConversation(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Message == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error": fiber.Map{
-				"code":    "INVALID_REQUEST",
-				"message": "message wajib diisi",
-			},
-		})
-	}
-
 	if req.RecipientID == userID {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
