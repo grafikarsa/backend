@@ -44,6 +44,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Copy docker-compose to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "docker-compose.prod.yml"
+          target: "/opt/grafikarsa/backend"
+
       - name: Deploy to Production Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -59,10 +69,8 @@ jobs:
             # Pull latest image
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             
-            # Restart only the API container (keep DB and MinIO running)
-            docker-compose -f docker-compose.prod.yml stop api
-            docker-compose -f docker-compose.prod.yml rm -f api
-            docker-compose -f docker-compose.prod.yml up -d api
+            # Recreate only the api container with latest image and config (now updated via SCP)
+            docker-compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api
             
             # Cleanup old images
             docker image prune -f
