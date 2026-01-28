@@ -86,8 +86,8 @@ func (j *JSONB) Scan(value interface{}) error {
 // Base model with soft delete
 type BaseModel struct {
 	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	CreatedAt time.Time  `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt time.Time  `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"-"`
 }
 
@@ -151,8 +151,8 @@ type SeriesBlock struct {
 	BlockType  ContentBlockType `gorm:"type:content_block_type;not null" json:"block_type"`
 	BlockOrder int              `gorm:"not null" json:"block_order"`
 	Instruksi  string           `gorm:"type:text;not null" json:"instruksi"`
-	CreatedAt  time.Time        `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt  time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 func (SeriesBlock) TableName() string { return "series_blocks" }
@@ -187,8 +187,8 @@ type UserSocialLink struct {
 	UserID    uuid.UUID      `gorm:"type:uuid;not null" json:"user_id"`
 	Platform  SocialPlatform `gorm:"type:social_platform;not null" json:"platform"`
 	URL       string         `gorm:"type:text;not null" json:"url"`
-	CreatedAt time.Time      `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt time.Time      `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 func (UserSocialLink) TableName() string { return "user_social_links" }
@@ -200,7 +200,7 @@ type StudentClassHistory struct {
 	KelasID       uuid.UUID    `gorm:"type:uuid;not null" json:"kelas_id"`
 	TahunAjaranID uuid.UUID    `gorm:"type:uuid;not null" json:"tahun_ajaran_id"`
 	IsCurrent     bool         `gorm:"not null;default:false" json:"is_current"`
-	CreatedAt     time.Time    `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt     time.Time    `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	Kelas         *Kelas       `gorm:"foreignKey:KelasID" json:"kelas,omitempty"`
 	TahunAjaran   *TahunAjaran `gorm:"foreignKey:TahunAjaranID" json:"tahun_ajaran,omitempty"`
 }
@@ -219,7 +219,7 @@ type RefreshToken struct {
 	RevokedAt     *time.Time `json:"revoked_at,omitempty"`
 	RevokedReason *string    `gorm:"type:varchar(100)" json:"revoked_reason,omitempty"`
 	ExpiresAt     time.Time  `gorm:"not null" json:"expires_at"`
-	CreatedAt     time.Time  `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt     time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	LastUsedAt    *time.Time `json:"last_used_at,omitempty"`
 	User          *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
@@ -232,7 +232,7 @@ type TokenBlacklist struct {
 	JTI           string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"jti"`
 	UserID        *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
 	ExpiresAt     time.Time  `gorm:"not null" json:"expires_at"`
-	BlacklistedAt time.Time  `gorm:"not null;default:now()" json:"blacklisted_at"`
+	BlacklistedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"blacklisted_at"`
 	Reason        *string    `gorm:"type:varchar(100)" json:"reason,omitempty"`
 }
 
@@ -243,7 +243,7 @@ type Follow struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	FollowerID  uuid.UUID `gorm:"type:uuid;not null" json:"follower_id"`
 	FollowingID uuid.UUID `gorm:"type:uuid;not null" json:"following_id"`
-	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	Follower    *User     `gorm:"foreignKey:FollowerID" json:"follower,omitempty"`
 	Following   *User     `gorm:"foreignKey:FollowingID" json:"following,omitempty"`
 }
@@ -276,7 +276,7 @@ func (Portfolio) TableName() string { return "portfolios" }
 type PortfolioTag struct {
 	PortfolioID uuid.UUID `gorm:"type:uuid;primaryKey" json:"portfolio_id"`
 	TagID       uuid.UUID `gorm:"type:uuid;primaryKey" json:"tag_id"`
-	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 func (PortfolioTag) TableName() string { return "portfolio_tags" }
@@ -288,8 +288,8 @@ type ContentBlock struct {
 	BlockType   ContentBlockType `gorm:"type:content_block_type;not null" json:"block_type"`
 	BlockOrder  int              `gorm:"not null" json:"block_order"`
 	Payload     JSONB            `gorm:"type:jsonb;not null;default:'{}'" json:"payload"`
-	CreatedAt   time.Time        `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt   time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt   time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt   time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 func (ContentBlock) TableName() string { return "content_blocks" }
@@ -298,7 +298,7 @@ func (ContentBlock) TableName() string { return "content_blocks" }
 type PortfolioLike struct {
 	UserID      uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
 	PortfolioID uuid.UUID `gorm:"type:uuid;primaryKey" json:"portfolio_id"`
-	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 }
 
 func (PortfolioLike) TableName() string { return "portfolio_likes" }
@@ -308,7 +308,7 @@ type AppSetting struct {
 	Key         string     `gorm:"type:varchar(100);primaryKey" json:"key"`
 	Value       JSONB      `gorm:"type:jsonb;not null" json:"value"`
 	Description *string    `gorm:"type:text" json:"description,omitempty"`
-	UpdatedAt   time.Time  `gorm:"not null;default:now()" json:"updated_at"`
+	UpdatedAt   time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	UpdatedBy   *uuid.UUID `gorm:"type:uuid" json:"updated_by,omitempty"`
 }
 
@@ -341,8 +341,8 @@ type Feedback struct {
 	AdminNotes *string          `gorm:"type:text" json:"admin_notes,omitempty"`
 	ResolvedBy *uuid.UUID       `gorm:"type:uuid" json:"resolved_by,omitempty"`
 	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
-	CreatedAt  time.Time        `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt  time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	User       *User            `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Resolver   *User            `gorm:"foreignKey:ResolvedBy" json:"resolver,omitempty"`
 }
@@ -371,8 +371,8 @@ type PortfolioAssessment struct {
 	AssessedBy   uuid.UUID                  `gorm:"type:uuid;not null" json:"assessed_by"`
 	FinalComment *string                    `gorm:"type:text" json:"final_comment,omitempty"`
 	TotalScore   *float64                   `gorm:"type:decimal(4,2)" json:"total_score,omitempty"`
-	CreatedAt    time.Time                  `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt    time.Time                  `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt    time.Time                  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt    time.Time                  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	Portfolio    *Portfolio                 `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
 	Assessor     *User                      `gorm:"foreignKey:AssessedBy" json:"assessor,omitempty"`
 	Scores       []PortfolioAssessmentScore `gorm:"foreignKey:AssessmentID" json:"scores,omitempty"`
@@ -387,8 +387,8 @@ type PortfolioAssessmentScore struct {
 	MetricID     uuid.UUID         `gorm:"type:uuid;not null" json:"metric_id"`
 	Score        int               `gorm:"type:smallint;not null" json:"score"`
 	Comment      *string           `gorm:"type:text" json:"comment,omitempty"`
-	CreatedAt    time.Time         `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt    time.Time         `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt    time.Time         `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt    time.Time         `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	Metric       *AssessmentMetric `gorm:"foreignKey:MetricID" json:"metric,omitempty"`
 }
 
@@ -437,7 +437,7 @@ type Notification struct {
 	Data      JSONB            `gorm:"type:jsonb;default:'{}'" json:"data,omitempty"`
 	IsRead    bool             `gorm:"default:false" json:"is_read"`
 	ReadAt    *time.Time       `json:"read_at,omitempty"`
-	CreatedAt time.Time        `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	User      *User            `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
@@ -540,7 +540,7 @@ type UserSpecialRole struct {
 	UserID        uuid.UUID    `gorm:"type:uuid;primaryKey" json:"user_id"`
 	SpecialRoleID uuid.UUID    `gorm:"type:uuid;primaryKey" json:"special_role_id"`
 	AssignedBy    *uuid.UUID   `gorm:"type:uuid" json:"assigned_by,omitempty"`
-	AssignedAt    time.Time    `gorm:"not null;default:now()" json:"assigned_at"`
+	AssignedAt    time.Time    `gorm:"not null;default:CURRENT_TIMESTAMP" json:"assigned_at"`
 	User          *User        `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	SpecialRole   *SpecialRole `gorm:"foreignKey:SpecialRoleID" json:"special_role,omitempty"`
 	Assigner      *User        `gorm:"foreignKey:AssignedBy" json:"assigner,omitempty"`
@@ -567,7 +567,7 @@ type PortfolioView struct {
 	PortfolioID uuid.UUID  `gorm:"type:uuid;not null" json:"portfolio_id"`
 	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
 	SessionID   *string    `gorm:"type:varchar(64)" json:"session_id,omitempty"`
-	ViewedAt    time.Time  `gorm:"not null;default:now()" json:"viewed_at"`
+	ViewedAt    time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"viewed_at"`
 	Portfolio   *Portfolio `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
 	User        *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
@@ -580,7 +580,7 @@ type UserInterest struct {
 	LikedTags    JSONB     `gorm:"type:jsonb;not null;default:'{}'" json:"liked_tags"`
 	LikedJurusan JSONB     `gorm:"type:jsonb;not null;default:'{}'" json:"liked_jurusan"`
 	TotalLikes   int       `gorm:"not null;default:0" json:"total_likes"`
-	UpdatedAt    time.Time `gorm:"not null;default:now()" json:"updated_at"`
+	UpdatedAt    time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	User         *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
@@ -590,7 +590,7 @@ func (UserInterest) TableName() string { return "user_interests" }
 type UserFeedPreference struct {
 	UserID    uuid.UUID     `gorm:"type:uuid;primaryKey" json:"user_id"`
 	Algorithm FeedAlgorithm `gorm:"type:varchar(20);not null;default:'smart'" json:"algorithm"`
-	UpdatedAt time.Time     `gorm:"not null;default:now()" json:"updated_at"`
+	UpdatedAt time.Time     `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	User      *User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
@@ -674,7 +674,7 @@ type ChangelogSection struct {
 	ChangelogID  uuid.UUID               `gorm:"type:uuid;not null" json:"changelog_id"`
 	Category     ChangelogCategory       `gorm:"type:varchar(20);not null" json:"category"`
 	SectionOrder int                     `gorm:"not null;default:0" json:"section_order"`
-	CreatedAt    time.Time               `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt    time.Time               `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	Blocks       []ChangelogSectionBlock `gorm:"foreignKey:SectionID" json:"blocks,omitempty"`
 }
 
@@ -687,8 +687,8 @@ type ChangelogSectionBlock struct {
 	BlockType  ContentBlockType `gorm:"type:varchar(20);not null" json:"block_type"`
 	BlockOrder int              `gorm:"not null;default:0" json:"block_order"`
 	Payload    JSONB            `gorm:"type:jsonb;not null;default:'{}'" json:"payload"`
-	CreatedAt  time.Time        `gorm:"not null;default:now()" json:"created_at"`
-	UpdatedAt  time.Time        `gorm:"not null;default:now()" json:"updated_at"`
+	CreatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+	UpdatedAt  time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 }
 
 func (ChangelogSectionBlock) TableName() string { return "changelog_section_blocks" }
@@ -700,7 +700,7 @@ type ChangelogContributor struct {
 	UserID           uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	Contribution     string    `gorm:"type:varchar(255);not null" json:"contribution"`
 	ContributorOrder int       `gorm:"not null;default:0" json:"contributor_order"`
-	CreatedAt        time.Time `gorm:"not null;default:now()" json:"created_at"`
+	CreatedAt        time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	User             *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
@@ -711,7 +711,7 @@ type ChangelogRead struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID      uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	ChangelogID uuid.UUID `gorm:"type:uuid;not null" json:"changelog_id"`
-	ReadAt      time.Time `gorm:"not null;default:now()" json:"read_at"`
+	ReadAt      time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"read_at"`
 }
 
 func (ChangelogRead) TableName() string { return "changelog_reads" }
