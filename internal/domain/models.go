@@ -564,9 +564,9 @@ const (
 // PortfolioView - Tracking view portfolio untuk feed algorithm
 type PortfolioView struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	PortfolioID uuid.UUID  `gorm:"type:uuid;not null" json:"portfolio_id"`
-	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
-	SessionID   *string    `gorm:"type:varchar(64)" json:"session_id,omitempty"`
+	PortfolioID uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:idx_pv_user;uniqueIndex:idx_pv_session" json:"portfolio_id"`
+	UserID      *uuid.UUID `gorm:"type:uuid;uniqueIndex:idx_pv_user" json:"user_id,omitempty"`
+	SessionID   *string    `gorm:"type:varchar(64);uniqueIndex:idx_pv_session" json:"session_id,omitempty"`
 	ViewedAt    time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"viewed_at"`
 	Portfolio   *Portfolio `gorm:"foreignKey:PortfolioID" json:"portfolio,omitempty"`
 	User        *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
