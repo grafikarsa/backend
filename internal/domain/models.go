@@ -84,7 +84,7 @@ func (j *JSONB) Scan(value interface{}) error {
 
 // Base model with soft delete
 type BaseModel struct {
-	ID        uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	CreatedAt time.Time  `gorm:"not null;default:now()" json:"created_at"`
 	UpdatedAt time.Time  `gorm:"not null;default:now()" json:"updated_at"`
 	DeletedAt *time.Time `gorm:"index" json:"-"`
@@ -145,7 +145,7 @@ func (Series) TableName() string { return "series" }
 
 // SeriesBlock - Template block konten untuk series
 type SeriesBlock struct {
-	ID         uuid.UUID        `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	SeriesID   uuid.UUID        `gorm:"type:uuid;not null" json:"series_id"`
 	BlockType  ContentBlockType `gorm:"type:content_block_type;not null" json:"block_type"`
 	BlockOrder int              `gorm:"not null" json:"block_order"`
@@ -182,7 +182,7 @@ func (User) TableName() string { return "users" }
 
 // UserSocialLink
 type UserSocialLink struct {
-	ID        uuid.UUID      `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID    uuid.UUID      `gorm:"type:uuid;not null" json:"user_id"`
 	Platform  SocialPlatform `gorm:"type:social_platform;not null" json:"platform"`
 	URL       string         `gorm:"type:text;not null" json:"url"`
@@ -194,7 +194,7 @@ func (UserSocialLink) TableName() string { return "user_social_links" }
 
 // StudentClassHistory
 type StudentClassHistory struct {
-	ID            uuid.UUID    `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID            uuid.UUID    `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID        uuid.UUID    `gorm:"type:uuid;not null" json:"user_id"`
 	KelasID       uuid.UUID    `gorm:"type:uuid;not null" json:"kelas_id"`
 	TahunAjaranID uuid.UUID    `gorm:"type:uuid;not null" json:"tahun_ajaran_id"`
@@ -208,7 +208,7 @@ func (StudentClassHistory) TableName() string { return "student_class_history" }
 
 // RefreshToken
 type RefreshToken struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID        uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
 	TokenHash     string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"-"`
 	FamilyID      uuid.UUID  `gorm:"type:uuid;not null" json:"family_id"`
@@ -227,7 +227,7 @@ func (RefreshToken) TableName() string { return "refresh_tokens" }
 
 // TokenBlacklist
 type TokenBlacklist struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	JTI           string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"jti"`
 	UserID        *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
 	ExpiresAt     time.Time  `gorm:"not null" json:"expires_at"`
@@ -239,7 +239,7 @@ func (TokenBlacklist) TableName() string { return "token_blacklist" }
 
 // Follow
 type Follow struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	FollowerID  uuid.UUID `gorm:"type:uuid;not null" json:"follower_id"`
 	FollowingID uuid.UUID `gorm:"type:uuid;not null" json:"following_id"`
 	CreatedAt   time.Time `gorm:"not null;default:now()" json:"created_at"`
@@ -282,7 +282,7 @@ func (PortfolioTag) TableName() string { return "portfolio_tags" }
 
 // ContentBlock
 type ContentBlock struct {
-	ID          uuid.UUID        `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID          uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	PortfolioID uuid.UUID        `gorm:"type:uuid;not null" json:"portfolio_id"`
 	BlockType   ContentBlockType `gorm:"type:content_block_type;not null" json:"block_type"`
 	BlockOrder  int              `gorm:"not null" json:"block_order"`
@@ -332,7 +332,7 @@ const (
 
 // Feedback
 type Feedback struct {
-	ID         uuid.UUID        `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID     *uuid.UUID       `gorm:"type:uuid" json:"user_id,omitempty"`
 	Kategori   FeedbackKategori `gorm:"type:feedback_kategori;not null" json:"kategori"`
 	Pesan      string           `gorm:"type:text;not null" json:"pesan"`
@@ -365,7 +365,7 @@ func (AssessmentMetric) TableName() string { return "assessment_metrics" }
 
 // PortfolioAssessment - Header penilaian portfolio
 type PortfolioAssessment struct {
-	ID           uuid.UUID                  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID           uuid.UUID                  `gorm:"type:uuid;primaryKey" json:"id"`
 	PortfolioID  uuid.UUID                  `gorm:"type:uuid;not null;uniqueIndex" json:"portfolio_id"`
 	AssessedBy   uuid.UUID                  `gorm:"type:uuid;not null" json:"assessed_by"`
 	FinalComment *string                    `gorm:"type:text" json:"final_comment,omitempty"`
@@ -381,7 +381,7 @@ func (PortfolioAssessment) TableName() string { return "portfolio_assessments" }
 
 // PortfolioAssessmentScore - Detail nilai per metrik
 type PortfolioAssessmentScore struct {
-	ID           uuid.UUID         `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID           uuid.UUID         `gorm:"type:uuid;primaryKey" json:"id"`
 	AssessmentID uuid.UUID         `gorm:"type:uuid;not null" json:"assessment_id"`
 	MetricID     uuid.UUID         `gorm:"type:uuid;not null" json:"metric_id"`
 	Score        int               `gorm:"type:smallint;not null" json:"score"`
@@ -428,7 +428,7 @@ func (Comment) TableName() string { return "comments" }
 
 // Notification
 type Notification struct {
-	ID        uuid.UUID        `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	ID        uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID    uuid.UUID        `gorm:"type:uuid;not null" json:"user_id"`
 	Type      NotificationType `gorm:"type:notification_type;not null" json:"type"`
 	Title     string           `gorm:"type:varchar(255);not null" json:"title"`
@@ -562,7 +562,7 @@ const (
 
 // PortfolioView - Tracking view portfolio untuk feed algorithm
 type PortfolioView struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	PortfolioID uuid.UUID  `gorm:"type:uuid;not null" json:"portfolio_id"`
 	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
 	SessionID   *string    `gorm:"type:varchar(64)" json:"session_id,omitempty"`
@@ -669,7 +669,7 @@ func (Changelog) TableName() string { return "changelogs" }
 
 // ChangelogSection - Section within a changelog (added, updated, removed, fixed)
 type ChangelogSection struct {
-	ID           uuid.UUID               `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID           uuid.UUID               `gorm:"type:uuid;primaryKey" json:"id"`
 	ChangelogID  uuid.UUID               `gorm:"type:uuid;not null" json:"changelog_id"`
 	Category     ChangelogCategory       `gorm:"type:varchar(20);not null" json:"category"`
 	SectionOrder int                     `gorm:"not null;default:0" json:"section_order"`
@@ -681,7 +681,7 @@ func (ChangelogSection) TableName() string { return "changelog_sections" }
 
 // ChangelogSectionBlock - Content block within a section
 type ChangelogSectionBlock struct {
-	ID         uuid.UUID        `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID         uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
 	SectionID  uuid.UUID        `gorm:"type:uuid;not null" json:"section_id"`
 	BlockType  ContentBlockType `gorm:"type:varchar(20);not null" json:"block_type"`
 	BlockOrder int              `gorm:"not null;default:0" json:"block_order"`
@@ -694,7 +694,7 @@ func (ChangelogSectionBlock) TableName() string { return "changelog_section_bloc
 
 // ChangelogContributor - User who contributed to a changelog
 type ChangelogContributor struct {
-	ID               uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	ChangelogID      uuid.UUID `gorm:"type:uuid;not null" json:"changelog_id"`
 	UserID           uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	Contribution     string    `gorm:"type:varchar(255);not null" json:"contribution"`
@@ -707,10 +707,123 @@ func (ChangelogContributor) TableName() string { return "changelog_contributors"
 
 // ChangelogRead - Track which changelogs have been read by users
 type ChangelogRead struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID      uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	ChangelogID uuid.UUID `gorm:"type:uuid;not null" json:"changelog_id"`
 	ReadAt      time.Time `gorm:"not null;default:now()" json:"read_at"`
 }
 
 func (ChangelogRead) TableName() string { return "changelog_reads" }
+
+// ============================================================================
+// HOOKS FOR UUID GENERATION
+// ============================================================================
+
+// setUUIDIfEmpty checks if ID is nil and sets it to a new UUID
+func setUUIDIfEmpty(id *uuid.UUID) {
+	if *id == uuid.Nil {
+		*id = uuid.New()
+	}
+}
+
+// BaseModel Hook
+func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&b.ID)
+	return nil
+}
+
+// SeriesBlock Hook
+func (m *SeriesBlock) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// UserSocialLink Hook
+func (m *UserSocialLink) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// StudentClassHistory Hook
+func (m *StudentClassHistory) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// RefreshToken Hook
+func (m *RefreshToken) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// TokenBlacklist Hook
+func (m *TokenBlacklist) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// Follow Hook
+func (m *Follow) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// ContentBlock Hook
+func (m *ContentBlock) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// Feedback Hook
+func (m *Feedback) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// PortfolioAssessment Hook
+func (m *PortfolioAssessment) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// PortfolioAssessmentScore Hook
+func (m *PortfolioAssessmentScore) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// Notification Hook
+func (m *Notification) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// PortfolioView Hook
+func (m *PortfolioView) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// ChangelogSection Hook
+func (m *ChangelogSection) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// ChangelogSectionBlock Hook
+func (m *ChangelogSectionBlock) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// ChangelogContributor Hook
+func (m *ChangelogContributor) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
+
+// ChangelogRead Hook
+func (m *ChangelogRead) BeforeCreate(tx *gorm.DB) error {
+	setUUIDIfEmpty(&m.ID)
+	return nil
+}
