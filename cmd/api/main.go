@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -57,12 +58,14 @@ func main() {
 	feedRepo := repository.NewFeedRepository(db)
 	changelogRepo := repository.NewChangelogRepository(db)
 	commentRepo := repository.NewCommentRepository(db)
+	dmRepo := repository.NewDMRepository(db)
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
 	feedService := service.NewFeedService(portfolioRepo, followRepo, viewRepo, interestRepo)
 	commentService := service.NewCommentService(commentRepo, userRepo, portfolioRepo, notificationRepo)
 	commentService.SetNotificationService(notificationService)
+	dmService := service.NewDMService(dmRepo, userRepo, followRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(userRepo, authRepo, jwtService)
@@ -82,6 +85,8 @@ func main() {
 	importHandler := handler.NewImportHandler(adminRepo, userRepo)
 	changelogHandler := handler.NewChangelogHandler(changelogRepo, notificationService, userRepo)
 	commentHandler := handler.NewCommentHandler(commentService)
+	dmHandler := handler.NewDMHandler(dmService)
+	wsHandler := handler.NewWebSocketHandler()
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, db)
@@ -334,6 +339,38 @@ func main() {
 
 	// Public Feedback route (auth optional)
 	api.Post("/feedback", authMiddleware.Optional(), feedbackHandler.CreateFeedback)
+
+	// Direct Messaging routes
+	conversationRoutes := api.Group("/conversations", authMiddleware.Required())
+	conversationRoutes.Get("/", dmHandler.ListConversations)
+	conversationRoutes.Post("/", dmHandler.StartConversation)
+	conversationRoutes.Get("/:id", dmHandler.GetConversation)
+	conversationRoutes.Post("/:id/archive", dmHandler.ArchiveConversation)
+	conversationRoutes.Delete("/:id/archive", dmHandler.UnarchiveConversation)
+	conversationRoutes.Post("/:id/mute", dmHandler.MuteConversation)
+	conversationRoutes.Delete("/:id/mute", dmHandler.UnmuteConversation)
+	conversationRoutes.Post("/:id/read", dmHandler.MarkAsRead)
+	conversationRoutes.Get("/:id/messages", dmHandler.GetMessages)
+	conversationRoutes.Post("/:id/messages", dmHandler.SendMessage)
+
+	// Message routes
+	messageRoutes := api.Group("/messages", authMiddleware.Required())
+	messageRoutes.Delete("/:id", dmHandler.DeleteMessage)
+	messageRoutes.Post("/:id/reactions", dmHandler.AddReaction)
+	messageRoutes.Delete("/:id/reactions/:emoji", dmHandler.RemoveReaction)
+
+	// DM Settings & Block routes
+	dmRoutes := api.Group("/dm", authMiddleware.Required())
+	dmRoutes.Get("/settings", dmHandler.GetDMSettings)
+	dmRoutes.Patch("/settings", dmHandler.UpdateDMSettings)
+	dmRoutes.Post("/block/:userId", dmHandler.BlockUser)
+	dmRoutes.Delete("/block/:userId", dmHandler.UnblockUser)
+	dmRoutes.Get("/blocked", dmHandler.GetBlockedUsers)
+	dmRoutes.Get("/streaks", dmHandler.GetChatStreaks)
+
+	// WebSocket for real-time DM
+	app.Use("/api/v1/ws/chat", wsHandler.WebSocketUpgrade(authMiddleware))
+	app.Get("/api/v1/ws/chat", websocket.New(wsHandler.HandleWebSocket))
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

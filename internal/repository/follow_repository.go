@@ -84,3 +84,13 @@ func (r *FollowRepository) GetFollowerCount(userID uuid.UUID) (int64, error) {
 	err := r.db.Model(&domain.Follow{}).Where("following_id = ?", userID).Count(&count).Error
 	return count, err
 }
+
+// IsMutualFollow checks if two users follow each other
+func (r *FollowRepository) IsMutualFollow(userA, userB uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Model(&domain.Follow{}).
+		Where("(follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)",
+			userA, userB, userB, userA).
+		Count(&count).Error
+	return count == 2, err
+}

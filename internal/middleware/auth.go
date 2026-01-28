@@ -140,3 +140,8 @@ func GetUserRole(c *fiber.Ctx) string {
 	}
 	return role.(string)
 }
+
+// GetJWTService returns the JWT service for token validation
+func (m *AuthMiddleware) GetJWTService() *auth.JWTService {
+	return m.jwtService
+}
