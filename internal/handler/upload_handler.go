@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,6 +20,7 @@ type UploadHandler struct {
 	userRepo       *repository.UserRepository
 	portfolioRepo  *repository.PortfolioRepository
 	pendingUploads map[string]*PendingUpload
+	mu             sync.RWMutex
 }
 
 type PendingUpload struct {
@@ -142,6 +144,7 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 
 	// Store pending upload
 	uploadID := uuid.New().String()
+	h.mu.Lock()
 	h.pendingUploads[uploadID] = &PendingUpload{
 		ID:          uploadID,
 		UserID:      *userID,
@@ -150,8 +153,8 @@ func (h *UploadHandler) Presign(c *fiber.Ctx) error {
 		PortfolioID: req.PortfolioID,
 		BlockID:     req.BlockID,
 		ExpiresAt:   time.Now().Add(15 * time.Minute),
-		Confirmed:   false,
 	}
+	h.mu.Unlock()
 
 	return c.JSON(dto.SuccessResponse(dto.PresignResponse{
 		UploadID:     uploadID,
@@ -175,7 +178,9 @@ func (h *UploadHandler) Confirm(c *fiber.Ctx) error {
 	}
 
 	// Find pending upload
+	h.mu.RLock()
 	pending, ok := h.pendingUploads[req.UploadID]
+	h.mu.RUnlock()
 	if !ok || pending.ExpiresAt.Before(time.Now()) {
 		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("UPLOAD_NOT_FOUND", "Upload tidak ditemukan atau sudah expired"))
 	}
