@@ -14,7 +14,7 @@ import (
 // StartConversationRequest - Request to start a new conversation
 type StartConversationRequest struct {
 	RecipientID uuid.UUID `json:"recipient_id" validate:"required"`
-	Message     string    `json:"message" validate:"required,min=1,max=5000"`
+	Message     string    `json:"message" validate:"max=5000"`
 }
 
 // SendMessageRequest - Request to send a message
