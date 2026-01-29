@@ -157,6 +157,7 @@ func (h *UserHandler) GetByUsername(c *fiber.Ctx) error {
 	userDTO := dto.UserDetailDTO{
 		ID:             user.ID,
 		Username:       user.Username,
+		Email:          user.Email,
 		Nama:           user.Nama,
 		Bio:            user.Bio,
 		AvatarURL:      user.AvatarURL,

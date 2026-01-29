@@ -24,6 +24,7 @@ type UserListDTO struct {
 type UserDetailDTO struct {
 	ID             uuid.UUID            `json:"id"`
 	Username       string               `json:"username"`
+	Email          string               `json:"email"`
 	Nama           string               `json:"nama"`
 	Bio            *string              `json:"bio,omitempty"`
 	AvatarURL      *string              `json:"avatar_url,omitempty"`
