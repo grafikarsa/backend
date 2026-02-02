@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -61,7 +62,7 @@ func Load() (*Config, error) {
 	accessExpiry, _ := time.ParseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m"))
 	refreshExpiry, _ := time.ParseDuration(getEnv("JWT_REFRESH_EXPIRY", "168h"))
 
-	return &Config{
+	cfg := &Config{
 		App: AppConfig{
 			Env:       getEnv("APP_ENV", "development"),
 			Port:      getEnv("APP_PORT", "8080"),
@@ -95,7 +96,16 @@ func Load() (*Config, error) {
 		CORS: CORSConfig{
 			Origins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:3000"), ","),
 		},
-	}, nil
+	}
+
+	// Validate critical configuration
+	if cfg.App.Env == "production" {
+		if cfg.JWT.AccessSecret == "" || cfg.JWT.RefreshSecret == "" {
+			return nil, errors.New("JWT secrets must be configured in production environment")
+		}
+	}
+
+	return cfg, nil
 }
 
 func getEnv(key, defaultValue string) string {
