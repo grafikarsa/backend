@@ -111,20 +111,26 @@ func main() {
 		},
 	})
 
-	// Middleware
-	app.Use(recover.New())
-	app.Use(logger.New())
+	// 1. CORS MUST be the very first middleware for proper preflight handling
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     strings.Join(cfg.CORS.Origins, ","),
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With,Cache-Control,Pragma,Service-Worker",
 		AllowCredentials: true,
+		MaxAge:           3600, // Cache preflight for 1 hour
 	}))
+
+	// 2. Standard middleware
+	app.Use(recover.New())
+	app.Use(logger.New())
 
 	// Rate Limiting
 	app.Use(limiter.New(limiter.Config{
 		Max:        100,
 		Expiration: 1 * time.Minute,
+		Next: func(c *fiber.Ctx) bool {
+			return c.Method() == "OPTIONS"
+		},
 		KeyGenerator: func(c *fiber.Ctx) string {
 			return c.IP()
 		},
@@ -151,6 +157,9 @@ func main() {
 	authRateLimiter := limiter.New(limiter.Config{
 		Max:        5,
 		Expiration: 1 * time.Minute,
+		Next: func(c *fiber.Ctx) bool {
+			return c.Method() == "OPTIONS"
+		},
 		KeyGenerator: func(c *fiber.Ctx) string {
 			return c.IP()
 		},

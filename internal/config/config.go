@@ -94,7 +94,18 @@ func Load() (*Config, error) {
 			RefreshExpiry: refreshExpiry,
 		},
 		CORS: CORSConfig{
-			Origins: strings.Split(getEnv("CORS_ORIGINS", "http://localhost:3000"), ","),
+			Origins: func() []string {
+				raw := strings.Split(getEnv("CORS_ORIGINS", "http://localhost:3000"), ",")
+				var normalized []string
+				for _, o := range raw {
+					o = strings.TrimSpace(o)
+					o = strings.TrimSuffix(o, "/")
+					if o != "" {
+						normalized = append(normalized, o)
+					}
+				}
+				return normalized
+			}(),
 		},
 	}
 
