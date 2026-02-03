@@ -29,6 +29,15 @@ func (r *AuthRepository) FindRefreshTokenByHash(hash string) (*domain.RefreshTok
 	return &token, nil
 }
 
+func (r *AuthRepository) FindRefreshTokenByID(id uuid.UUID) (*domain.RefreshToken, error) {
+	var token domain.RefreshToken
+	err := r.db.Where("id = ?", id).First(&token).Error
+	if err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
 func (r *AuthRepository) RevokeRefreshToken(id uuid.UUID, reason string) error {
 	now := time.Now()
 	return r.db.Model(&domain.RefreshToken{}).

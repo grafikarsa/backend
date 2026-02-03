@@ -316,9 +316,23 @@ func (h *AuthHandler) DeleteSession(c *fiber.Ctx) error {
 		))
 	}
 
-	if err := h.authRepo.RevokeRefreshToken(sessionID, "manual_revoke"); err != nil {
+	// Verify session ownership
+	session, err := h.authRepo.FindRefreshTokenByID(sessionID)
+	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse(
 			"SESSION_NOT_FOUND", "Sesi tidak ditemukan",
+		))
+	}
+
+	if session.UserID != *userID {
+		return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse(
+			"FORBIDDEN", "Anda tidak memiliki akses untuk menghapus sesi ini",
+		))
+	}
+
+	if err := h.authRepo.RevokeRefreshToken(sessionID, "manual_revoke"); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse(
+			"INTERNAL_ERROR", "Gagal menghapus sesi",
 		))
 	}
 

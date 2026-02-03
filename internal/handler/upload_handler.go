@@ -257,6 +257,56 @@ func (h *UploadHandler) Delete(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Object key tidak valid"))
 	}
 
+	// Security Check: Authorization
+	userID := middleware.GetUserID(c)
+	userRole := middleware.GetUserRole(c)
+
+	// Admin can delete anything
+	if userRole != "admin" {
+		if userID == nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse("UNAUTHORIZED", "User tidak terautentikasi"))
+		}
+
+		// Check ownership based on key pattern
+		if strings.HasPrefix(objectKey, "avatars/") || strings.HasPrefix(objectKey, "banners/") {
+			// Expected format: avatars/{userID}/{fileID}.ext
+			// We check if the key contains the userID
+			expectedPrefixAvatar := fmt.Sprintf("avatars/%s/", userID.String())
+			expectedPrefixBanner := fmt.Sprintf("banners/%s/", userID.String())
+
+			if !strings.HasPrefix(objectKey, expectedPrefixAvatar) && !strings.HasPrefix(objectKey, expectedPrefixBanner) {
+				return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse("FORBIDDEN", "Anda tidak memiliki akses untuk menghapus file ini"))
+			}
+		} else if strings.HasPrefix(objectKey, "thumbnails/") || strings.HasPrefix(objectKey, "portfolio-images/") || strings.HasPrefix(objectKey, "documents/") {
+			// Expected format: prefix/{portfolioID}/{fileID}.ext
+			parts := strings.Split(objectKey, "/")
+			if len(parts) < 2 {
+				return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Format object key tidak valid"))
+			}
+
+			portfolioIDStr := parts[1]
+			portfolioID, err := uuid.Parse(portfolioIDStr)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse("VALIDATION_ERROR", "Portfolio ID tidak valid dalam object key"))
+			}
+
+			portfolio, err := h.portfolioRepo.FindByID(portfolioID)
+			if err != nil {
+				// If portfolio not found, we can't verify ownership.
+				// Safest option is to deny, or if it's an orphan file, maybe allow?
+				// Security-wise: Deny.
+				return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse("PORTFOLIO_NOT_FOUND", "Portfolio tidak ditemukan associated dengan file"))
+			}
+
+			if portfolio.UserID != *userID {
+				return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse("FORBIDDEN", "Anda tidak memiliki akses untuk menghapus file portfolio ini"))
+			}
+		} else {
+			// Unknown or restricted prefix
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse("FORBIDDEN", "Akses ditolak untuk tipe file ini"))
+		}
+	}
+
 	if err := h.minioClient.DeleteObject(objectKey); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse("INTERNAL_ERROR", "Gagal menghapus file"))
 	}
