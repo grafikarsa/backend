@@ -9,7 +9,7 @@ Panduan lengkap untuk deploy aplikasi Grafikarsa (Backend + Frontend) di LXC Con
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLOUDFLARE                                │
-│   domain.com ──► api.domain.com ──► storage.domain.com          │
+│   yourdomain.com ──► api.yourdomain.com ──► storage.yourdomain.com │
 └───────────────────────────┬─────────────────────────────────────┘
                             │ (HTTPS)
                             ▼
@@ -175,7 +175,11 @@ cat github_deploy.pub
 # atau di Windows PowerShell:
 type github_deploy.pub
 ```
-Copy output-nya.
+
+Copy **SELURUH** output-nya. Contoh format yang benar:
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJqfH... github-actions-deploy
+```
 
 Di LXC, sebagai user deploy:
 ```bash
@@ -183,10 +187,12 @@ su - deploy
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 nano ~/.ssh/authorized_keys
-# Paste public key, save (Ctrl+O, Enter, Ctrl+X)
+# Paste SELURUH public key (1 baris penuh), save (Ctrl+O, Enter, Ctrl+X)
 chmod 600 ~/.ssh/authorized_keys
 exit
 ```
+
+**PENTING**: Public key harus dalam 1 baris, dimulai dengan `ssh-ed25519` dan diakhiri dengan comment `github-actions-deploy`.
 
 ### 2.3 Enable SSH di LXC (Jika Belum)
 ```bash
@@ -201,9 +207,12 @@ systemctl status ssh
 ### 2.4 Test Koneksi SSH
 Dari komputer lokal:
 ```bash
-ssh -i github_deploy deploy@IP_LXC
+# Ganti dengan IP dan port SSH Anda
+ssh -i github_deploy -p YOUR_SSH_PORT deploy@YOUR_SERVER_IP
 ```
 Jika berhasil masuk, berarti SSH key sudah benar.
+
+**Catatan**: Jika SSH port Anda berbeda (bukan 22), pastikan menggunakan flag `-p PORT_NUMBER`.
 
 ---
 
@@ -224,27 +233,63 @@ Jika berhasil masuk, berarti SSH key sudah benar.
 
 ## ⚙️ BAGIAN 4: Setup GitHub Secrets
 
-Buka **KEDUA** repository (web dan backend) di GitHub.
+**PENTING**: Karena ini polyrepo (2 repository terpisah), setup secrets harus dilakukan di **KEDUA** repository:
+- `grafikarsa/backend` → https://github.com/grafikarsa/backend
+- `grafikarsa/web` → https://github.com/grafikarsa/web
+
+### 4.1 Setup Secrets untuk Repository Backend
+
+Buka: https://github.com/grafikarsa/backend
 
 Pergi ke: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-### Secrets yang Diperlukan:
+Tambahkan secrets berikut:
 
 | Secret Name | Deskripsi | Contoh Value |
 |-------------|-----------|--------------|
 | `DOCKERHUB_USERNAME` | Username Docker Hub | `rafapradana` |
 | `DOCKERHUB_TOKEN` | Access Token Docker Hub | `dckr_pat_xxxx` |
-| `SSH_HOST` | IP LXC Container | `192.168.1.100` |
+| `SSH_HOST` | IP LXC Container (IP Public) | `103.134.78.58` |
 | `SSH_USERNAME` | User untuk deploy | `deploy` |
-| `SSH_PRIVATE_KEY` | Isi file `github_deploy` (LENGKAP) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `SSH_PORT` | Port SSH | `22` |
+| `SSH_PRIVATE_KEY` | Isi file `github_deploy` (LENGKAP dari BEGIN sampai END) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `SSH_PORT` | Port SSH (sesuai server Anda) | `65117` |
 
-### Secrets Tambahan untuk Repo Web:
+**PENTING untuk `SSH_PRIVATE_KEY`**:
+- Buka file `github_deploy` (tanpa .pub) dengan text editor
+- Copy **SELURUH ISI** dari baris pertama `-----BEGIN OPENSSH PRIVATE KEY-----` sampai baris terakhir `-----END OPENSSH PRIVATE KEY-----`
+- Paste ke GitHub Secret (termasuk semua baris di tengahnya)
+- Contoh format yang benar:
+```
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACCany...
+(banyak baris di tengah)
+...akhir key
+-----END OPENSSH PRIVATE KEY-----
+```
+
+### 4.2 Setup Secrets untuk Repository Web
+
+Buka: https://github.com/grafikarsa/web
+
+Pergi ke: **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+Tambahkan secrets berikut:
 
 | Secret Name | Deskripsi | Contoh Value |
 |-------------|-----------|--------------|
-| `NEXT_PUBLIC_API_URL` | URL Backend API | `https://api.domain.com/api/v1` |
-| `NEXT_PUBLIC_APP_URL` | URL Frontend | `https://domain.com` |
+| `DOCKERHUB_USERNAME` | Username Docker Hub | `your_dockerhub_username` |
+| `DOCKERHUB_TOKEN` | Access Token Docker Hub | `dckr_pat_xxxxxxxxxxxx` |
+| `SSH_HOST` | IP LXC Container (IP Public) | `YOUR_SERVER_IP` |
+| `SSH_USERNAME` | User untuk deploy | `deploy` |
+| `SSH_PRIVATE_KEY` | Isi file `github_deploy` (LENGKAP dari BEGIN sampai END) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `SSH_PORT` | Port SSH (sesuai server Anda) | `22` |
+| `NEXT_PUBLIC_API_URL` | URL Backend API | `https://api.yourdomain.com/api/v1` |
+| `NEXT_PUBLIC_APP_URL` | URL Frontend | `https://yourdomain.com` |
+
+**Catatan**: 
+- SSH secrets sama untuk kedua repo karena deploy ke server yang sama
+- `SSH_PRIVATE_KEY` harus lengkap termasuk header `-----BEGIN` dan footer `-----END`
 
 ---
 
@@ -254,7 +299,7 @@ Pergi ke: **Settings** → **Secrets and variables** → **Actions** → **New r
 
 SSH ke LXC sebagai user `deploy`:
 ```bash
-ssh deploy@IP_LXC
+ssh -p YOUR_SSH_PORT deploy@YOUR_SERVER_IP
 cd /opt/grafikarsa/backend
 ```
 
@@ -373,7 +418,7 @@ Di komputer lokal Anda (Windows), buka PowerShell/Terminal:
 
 **Backend:**
 ```bash
-cd C:\Users\inven\Documents\rafa\grafika\grafikarsa\backend
+cd /path/to/your/backend
 docker login
 docker build -t YOUR_DOCKERHUB_USERNAME/grafikarsa-backend:latest .
 docker push YOUR_DOCKERHUB_USERNAME/grafikarsa-backend:latest
@@ -381,10 +426,10 @@ docker push YOUR_DOCKERHUB_USERNAME/grafikarsa-backend:latest
 
 **Web:**
 ```bash
-cd C:\Users\inven\Documents\rafa\grafika\grafikarsa\web
-docker build `
-  --build-arg NEXT_PUBLIC_API_URL=https://api.domain.com/api/v1 `
-  --build-arg NEXT_PUBLIC_APP_URL=https://domain.com `
+cd /path/to/your/web
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1 \
+  --build-arg NEXT_PUBLIC_APP_URL=https://yourdomain.com \
   -t YOUR_DOCKERHUB_USERNAME/grafikarsa-web:latest .
 docker push YOUR_DOCKERHUB_USERNAME/grafikarsa-web:latest
 ```
@@ -451,7 +496,7 @@ curl http://localhost:3000
 
 Dari komputer lokal (Windows PowerShell):
 ```powershell
-scp -i github_deploy backend/docs/db/db.sql deploy@IP_LXC:/opt/grafikarsa/backend/
+scp -i github_deploy -P YOUR_SSH_PORT backend/docs/db/db.sql deploy@YOUR_SERVER_IP:/opt/grafikarsa/backend/
 ```
 
 ### 5.5.2 Import SQL ke Database
@@ -485,10 +530,10 @@ nano /etc/apache2/sites-available/grafikarsa.conf
 
 Isi:
 ```apache
-# Frontend (domain.com)
+# Frontend (yourdomain.com)
 <VirtualHost *:80>
-    ServerName domain.com
-    ServerAlias www.domain.com
+    ServerName yourdomain.com
+    ServerAlias www.yourdomain.com
 
     ProxyPreserveHost On
     ProxyPass / http://localhost:3000/
@@ -504,9 +549,9 @@ Isi:
     CustomLog ${APACHE_LOG_DIR}/web-access.log combined
 </VirtualHost>
 
-# Backend API (api.domain.com)
+# Backend API (api.yourdomain.com)
 <VirtualHost *:80>
-    ServerName api.domain.com
+    ServerName api.yourdomain.com
 
     ProxyPreserveHost On
     ProxyPass / http://localhost:8080/
@@ -516,9 +561,9 @@ Isi:
     CustomLog ${APACHE_LOG_DIR}/api-access.log combined
 </VirtualHost>
 
-# Storage MinIO (storage.domain.com)
+# Storage MinIO (storage.yourdomain.com)
 <VirtualHost *:80>
-    ServerName storage.domain.com
+    ServerName storage.yourdomain.com
 
     ProxyPreserveHost On
     LimitRequestBody 0
@@ -561,10 +606,10 @@ Jika LXC menggunakan IP private dan ingin diakses dari luar:
 echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 sysctl -p
 
-# Port forwarding (ganti IP_PROXMOX dan IP_LXC)
-iptables -t nat -A PREROUTING -i vmbr0 -p tcp --dport 80 -j DNAT --to IP_LXC:80
-iptables -t nat -A PREROUTING -i vmbr0 -p tcp --dport 443 -j DNAT --to IP_LXC:443
-iptables -t nat -A POSTROUTING -s IP_LXC -j MASQUERADE
+# Port forwarding (ganti YOUR_LXC_IP dengan IP LXC Anda)
+iptables -t nat -A PREROUTING -i vmbr0 -p tcp --dport 80 -j DNAT --to YOUR_LXC_IP:80
+iptables -t nat -A PREROUTING -i vmbr0 -p tcp --dport 443 -j DNAT --to YOUR_LXC_IP:443
+iptables -t nat -A POSTROUTING -s YOUR_LXC_IP -j MASQUERADE
 
 # Save rules
 apt install -y iptables-persistent
@@ -581,10 +626,10 @@ Di Cloudflare Dashboard → DNS → Records, tambahkan:
 
 | Type | Name | Content | Proxy |
 |------|------|---------|-------|
-| A | `@` | IP_PROXMOX_atau_IP_LXC | 🟠 Proxied |
-| A | `api` | IP_PROXMOX_atau_IP_LXC | 🟠 Proxied |
-| A | `storage` | IP_PROXMOX_atau_IP_LXC | 🟠 Proxied |
-| A | `www` | IP_PROXMOX_atau_IP_LXC | 🟠 Proxied |
+| A | `@` | YOUR_SERVER_IP | 🟠 Proxied |
+| A | `api` | YOUR_SERVER_IP | 🟠 Proxied |
+| A | `storage` | YOUR_SERVER_IP | 🟠 Proxied |
+| A | `www` | YOUR_SERVER_IP | 🟠 Proxied |
 
 ### 8.2 SSL/TLS Settings
 1. **SSL/TLS → Overview**: Pilih **Flexible**
@@ -594,44 +639,80 @@ Di Cloudflare Dashboard → DNS → Records, tambahkan:
 
 ## 🔄 BAGIAN 9: Cara Menggunakan CI/CD
 
-Setelah semua setup selesai, CI/CD akan berjalan **OTOMATIS**.
+Setelah semua setup selesai, CI/CD akan berjalan **OTOMATIS** untuk masing-masing repository.
 
-### Cara Kerja:
+### Cara Kerja (Polyrepo):
 
 ```
-Push ke main → GitHub Actions → Build Docker → Push ke Hub → Deploy ke LXC
+Backend Repo:
+Push ke main → GitHub Actions → Build Backend Docker → Push ke Hub → Deploy Backend ke LXC
+
+Web Repo:
+Push ke main → GitHub Actions → Build Web Docker → Push ke Hub → Deploy Web ke LXC
 ```
 
 ### Yang Perlu Anda Lakukan:
 
-1. **Edit code** di komputer lokal
-2. **Commit** perubahan:
-   ```bash
-   git add .
-   git commit -m "feat: add new feature"
-   ```
-3. **Push** ke branch `main`:
-   ```bash
-   git push origin main
-   ```
-4. **Selesai!** GitHub Actions akan otomatis:
-   - Build Docker image
-   - Push ke Docker Hub
-   - SSH ke LXC
-   - Pull image terbaru
-   - Restart container
+**Untuk Update Backend:**
+```bash
+cd /path/to/your/backend
+git add .
+git commit -m "feat: add new backend feature"
+git push origin main
+```
+
+**Untuk Update Web:**
+```bash
+cd /path/to/your/web
+git add .
+git commit -m "feat: add new frontend feature"
+git push origin main
+```
+
+**Selesai!** GitHub Actions akan otomatis:
+- Build Docker image (backend atau web)
+- Push ke Docker Hub
+- SSH ke LXC
+- Pull image terbaru
+- Restart container yang sesuai
 
 ### Monitoring:
-- Buka tab **Actions** di GitHub repository
+
+**Backend:**
+- Buka: https://github.com/grafikarsa/backend/actions
+- ✅ Hijau = Sukses
+- ❌ Merah = Gagal (klik untuk lihat error)
+
+**Web:**
+- Buka: https://github.com/grafikarsa/web/actions
 - ✅ Hijau = Sukses
 - ❌ Merah = Gagal (klik untuk lihat error)
 
 ### Melihat Logs di LXC:
 ```bash
-ssh deploy@IP_LXC
+ssh -p YOUR_SSH_PORT deploy@YOUR_SERVER_IP
+
+# Backend logs
 docker logs grafikarsa-backend -f --tail=100
+
+# Web logs
 docker logs grafikarsa-web -f --tail=100
 ```
+
+### Deploy Kedua Service Sekaligus:
+
+Jika Anda update backend dan web bersamaan:
+```bash
+# Terminal 1 - Backend
+cd backend
+git add . && git commit -m "update" && git push origin main
+
+# Terminal 2 - Web
+cd web
+git add . && git commit -m "update" && git push origin main
+```
+
+Kedua GitHub Actions akan berjalan parallel dan deploy ke LXC secara independen.
 
 ---
 
@@ -810,27 +891,77 @@ docker system prune -a --volumes
 
 ## 📝 Checklist Deployment
 
+### Infrastructure Setup
 - [ ] Proxmox: LXC container created dengan nesting=1
 - [ ] LXC: Docker & Docker Compose installed
 - [ ] LXC: User `deploy` dengan akses Docker
 - [ ] LXC: Docker network `grafikarsa-network` created
 - [ ] LXC: SSH server installed dan running
-- [ ] Local: SSH key generated
-- [ ] LXC: Public key di `authorized_keys`
-- [ ] GitHub: All secrets configured (kedua repo)
-- [ ] Docker Hub: Access token created
-- [ ] LXC: Backend `.env` configured
-- [ ] LXC: docker-compose.prod.yml files created
-- [ ] LXC: Database schema imported
-- [ ] LXC: Apache configured dan running
 - [ ] Proxmox: Port forwarding configured (jika perlu)
-- [ ] Cloudflare: DNS records added
+
+### SSH & Security
+- [ ] Local: SSH key generated (`github_deploy` dan `github_deploy.pub`)
+- [ ] LXC: Public key di `/home/deploy/.ssh/authorized_keys`
+- [ ] Local: Test SSH connection berhasil
+
+### Docker Hub
+- [ ] Docker Hub: Account created
+- [ ] Docker Hub: Access token created
+- [ ] Local: Docker login berhasil
+
+### GitHub Secrets - Backend Repo
+- [ ] GitHub (backend): `DOCKERHUB_USERNAME` configured
+- [ ] GitHub (backend): `DOCKERHUB_TOKEN` configured
+- [ ] GitHub (backend): `SSH_HOST` configured
+- [ ] GitHub (backend): `SSH_USERNAME` configured
+- [ ] GitHub (backend): `SSH_PRIVATE_KEY` configured
+- [ ] GitHub (backend): `SSH_PORT` configured
+
+### GitHub Secrets - Web Repo
+- [ ] GitHub (web): `DOCKERHUB_USERNAME` configured
+- [ ] GitHub (web): `DOCKERHUB_TOKEN` configured
+- [ ] GitHub (web): `SSH_HOST` configured
+- [ ] GitHub (web): `SSH_USERNAME` configured
+- [ ] GitHub (web): `SSH_PRIVATE_KEY` configured
+- [ ] GitHub (web): `SSH_PORT` configured
+- [ ] GitHub (web): `NEXT_PUBLIC_API_URL` configured
+- [ ] GitHub (web): `NEXT_PUBLIC_APP_URL` configured
+
+### LXC Configuration
+- [ ] LXC: Backend `.env` configured
+- [ ] LXC: Backend `docker-compose.prod.yml` created
+- [ ] LXC: Web `docker-compose.prod.yml` created
+- [ ] LXC: Web `.env` configured
+- [ ] LXC: Apache configured dan running
+
+### First Deployment
+- [ ] Local: Backend Docker image built dan pushed
+- [ ] Local: Web Docker image built dan pushed
+- [ ] LXC: Backend containers running (api, db, minio)
+- [ ] LXC: Web container running
+- [ ] LXC: Database schema imported
+
+### DNS & SSL
+- [ ] Cloudflare: DNS record `@` added
+- [ ] Cloudflare: DNS record `api` added
+- [ ] Cloudflare: DNS record `storage` added
+- [ ] Cloudflare: DNS record `www` added
 - [ ] Cloudflare: SSL mode = Flexible
-- [ ] First push ke main branch
-- [ ] GitHub Actions: CI/CD workflow passed
-- [ ] Test: Web accessible via domain.com
-- [ ] Test: API accessible via api.domain.com
-- [ ] Test: Storage accessible via storage.domain.com
+- [ ] Cloudflare: Always Use HTTPS enabled
+
+### CI/CD Testing
+- [ ] Backend: First push ke main branch
+- [ ] Backend: GitHub Actions workflow passed
+- [ ] Web: First push ke main branch
+- [ ] Web: GitHub Actions workflow passed
+
+### Final Testing
+- [ ] Test: Web accessible via https://yourdomain.com
+- [ ] Test: API accessible via https://api.yourdomain.com
+- [ ] Test: API health check: https://api.yourdomain.com/health
+- [ ] Test: Storage accessible via https://storage.yourdomain.com
+- [ ] Test: Upload file ke MinIO berhasil
+- [ ] Test: Database connection dari backend berhasil
 
 ---
 
@@ -838,7 +969,7 @@ docker system prune -a --volumes
 
 ```bash
 # SSH ke LXC
-ssh deploy@IP_LXC
+ssh -p YOUR_SSH_PORT deploy@YOUR_SERVER_IP
 
 # Restart semua services
 cd /opt/grafikarsa/backend && docker compose -f docker-compose.prod.yml restart
@@ -863,7 +994,7 @@ docker compose -f docker-compose.prod.yml up -d
 docker exec -it grafikarsa-db psql -U grafikarsa -d grafikarsa
 
 # MinIO console
-# Buka browser: http://IP_LXC:9001
+# Buka browser: http://YOUR_SERVER_IP:9001
 # Login dengan MINIO_ACCESS_KEY dan MINIO_SECRET_KEY
 ```
 
